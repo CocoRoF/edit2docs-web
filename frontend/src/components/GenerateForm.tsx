@@ -172,7 +172,7 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
                     소스 파일 첨부 <span className="text-xs font-normal text-neutral-500">(선택)</span>
                 </summary>
                 <p className="mt-2 mb-3 text-xs text-neutral-500">
-                    소스 없이도 발표 의도만으로 생성할 수 있습니다. 첨부하면 그 내용을 바탕으로 슬라이드를 설계합니다.
+                    소스 없이도 작성 의도만으로 생성할 수 있습니다. 첨부하면 그 내용을 바탕으로 문서를 설계합니다.
                 </p>
                 <UploadDropzone onUploaded={setAsset} onCleared={() => setAsset(null)} />
             </details>

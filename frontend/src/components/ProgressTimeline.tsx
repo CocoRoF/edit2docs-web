@@ -14,7 +14,7 @@ const STAGE_LABEL: Record<string, string> = {
     executing_pages: "페이지 생성 중",
     checking_quality: "품질 검사 중",
     narrating: "내레이션 합성 중",
-    exporting: "PPTX 빌드 중",
+    exporting: "문서 빌드 중",
     done: "완료",
     failed: "실패",
 };
@@ -74,12 +74,15 @@ export default function ProgressTimeline({
             </header>
 
             <ol className="space-y-2.5">
-                {ORDER.map((stage) => {
+                {/* Doc jobs (docx/xlsx) emit a subset of stages — once the job
+                    finished, show only stages that actually ran; while running,
+                    "past" means SEEN, never inferred from list position. */}
+                {(seenStages.has("done")
+                    ? ORDER.filter((s) => seenStages.has(s))
+                    : ORDER
+                ).map((stage) => {
                     const isCurrent = latestStage === stage && !isFailed;
-                    const isPast =
-                        ORDER.indexOf(stage) <
-                            (latestStage ? ORDER.indexOf(latestStage) : -1) ||
-                        seenStages.has(stage);
+                    const isPast = seenStages.has(stage) && !isCurrent;
                     return (
                         <li
                             key={stage}

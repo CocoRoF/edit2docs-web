@@ -58,9 +58,17 @@ const MODELS = [
 ];
 
 const OP_LABEL: Record<string, string> = {
+    // pptx slide ops
     edit: "수정",
     add: "추가",
     delete: "삭제",
+    // docx paragraph ops
+    replace: "교체",
+    insert_after: "삽입",
+    // xlsx ops
+    set_cell: "셀 수정",
+    append_rows: "행 추가",
+    add_sheet: "시트 추가",
 };
 
 /**
@@ -256,14 +264,14 @@ export default function ChatPanel({
                     <div className="space-y-2 rounded-lg bg-neutral-50 px-4 py-4 text-sm text-neutral-600">
                         <p className="font-medium text-neutral-800">이렇게 요청해 보세요</p>
                         <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed">
-                            <li>3번 슬라이드 제목을 &lsquo;Q3 실적 요약&rsquo;으로 바꿔줘</li>
-                            <li>2번 슬라이드 뒤에 로드맵 슬라이드를 추가해줘</li>
-                            <li>마지막 슬라이드를 지워줘</li>
-                            <li>📎 문서를 첨부하고 &ldquo;이 내용으로 5번을 채워줘&rdquo;</li>
-                            <li>이 덱의 구성이 어떻게 돼? (질문만 해도 됩니다)</li>
+                            <li>PPT: 3번 슬라이드 제목을 &lsquo;Q3 실적 요약&rsquo;으로 바꿔줘</li>
+                            <li>Word: 2번 문단 수치를 15%로 고치고 요약 섹션 추가해줘</li>
+                            <li>Excel: B3 셀을 142로 바꾸고 3분기 행을 추가해줘</li>
+                            <li>문서를 첨부하고 &ldquo;이 내용을 반영해줘&rdquo;</li>
+                            <li>이 문서 구성이 어떻게 돼? (질문만 해도 됩니다)</li>
                         </ul>
                         <p className="pt-1 text-[11px] text-neutral-500">
-                            팁: 오른쪽 캔버스에서 텍스트를 <b>더블클릭</b>하면 AI 없이 즉시 수정됩니다.
+                            팁: PPT는 캔버스에서 텍스트를 <b>더블클릭</b>하면 AI 없이 즉시 수정됩니다.
                         </p>
                     </div>
                 )}
@@ -402,12 +410,12 @@ export default function ChatPanel({
                         disabled={disabled || busy}
                         placeholder={
                             disabled
-                                ? "먼저 PPTX 파일을 업로드하세요"
+                                ? "먼저 문서 파일을 업로드하세요 (PPTX·DOCX·XLSX)"
                                 : busy
                                   ? "편집 반영 중…"
                                   : attachments.length > 0
                                     ? "첨부한 문서로 무엇을 할까요? (예: 이 내용으로 5번 슬라이드 채워줘)"
-                                    : "슬라이드를 어떻게 바꿀까요? (Enter 전송, Shift+Enter 줄바꿈, 문서: 드래그/클립 버튼)"
+                                    : "문서를 어떻게 바꿀까요? (Enter 전송, Shift+Enter 줄바꿈, 참고자료: 드래그/클립 버튼)"
                         }
                         className="block max-h-[180px] w-full resize-none bg-transparent py-1 text-sm leading-relaxed text-neutral-900 placeholder:text-neutral-400 focus:outline-none disabled:opacity-60"
                     />
