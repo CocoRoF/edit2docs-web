@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* -------------------------------------------------------------------------- */
+/* Korean typography defaults                                                   */
+/* -------------------------------------------------------------------------- */
+
+@layer base {
+    html {
+        font-family:
+            "Pretendard", "Pretendard Variable", "Apple SD Gothic Neo",
+            "Malgun Gothic", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+        /* Strategist §K.1: Korean body tightens letter-spacing by -1% to -3% */
+        letter-spacing: -0.018em;
+        /* Body line-height 1.5–1.7 for Korean copy */
+        line-height: 1.6;
+        /* Hangul never italicizes — kill any oblique inheritance */
+        font-style: normal;
+    }
+
+    body {
+        @apply bg-white text-neutral-900 antialiased;
+    }
+
+    h1, h2, h3, h4 {
+        /* Strategist §K.1: headlines tighten further */
+        letter-spacing: -0.035em;
+        line-height: 1.25;
+    }
+
+    /* Pretendard is loaded from the CDN by app/layout.tsx via a <link>. We
+     * fall back to system Korean fonts when offline. */
+}
+
+/* Studio slide canvas: inline SVGs scale to their card and expose the
+ * text-edit affordance (double-click). Only slide-origin shapes carry
+ * data-e2p-shape, so master/layout chrome and tables never light up. */
+.slide-svg svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.slide-svg g[data-e2p-shape] text,
+.slide-svg g[data-e2p-table] g[data-e2p-cell] text {
+    cursor: text;
+}
+
+.slide-svg g[data-e2p-shape] text:hover,
+.slide-svg g[data-e2p-table] g[data-e2p-cell] text:hover {
+    opacity: 0.65;
+}
+
+/* Word/Excel document preview: engine-rendered structural HTML in a
+ * paper-like container. */
+.doc-preview {
+    font-size: 0.925rem;
+    line-height: 1.75;
+    color: #262626;
+}
+.doc-preview h1 { font-size: 1.5rem; font-weight: 700; margin: 1.2em 0 0.5em; }
+.doc-preview h2 { font-size: 1.25rem; font-weight: 700; margin: 1.1em 0 0.4em; }
+.doc-preview h3 { font-size: 1.08rem; font-weight: 600; margin: 1em 0 0.35em; }
+.doc-preview h1:first-child, .doc-preview h2:first-child { margin-top: 0; }
+.doc-preview p { margin: 0.55em 0; }
+.doc-preview ul, .doc-preview ol { margin: 0.55em 0; padding-left: 1.4em; }
+.doc-preview ul { list-style: disc; }
+.doc-preview ol { list-style: decimal; }
+.doc-preview table {
+    border-collapse: collapse;
+    margin: 0.8em 0;
+    width: 100%;
+    font-size: 0.86rem;
+}
+.doc-preview th, .doc-preview td {
+    border: 1px solid #e5e5e5;
+    padding: 0.4em 0.65em;
+    text-align: left;
+    vertical-align: top;
+}
+.doc-preview th { background: #f0f4ff; font-weight: 600; }
+.doc-preview blockquote {
+    border-left: 3px solid #1B64DA;
+    margin: 0.8em 0;
+    padding: 0.2em 0 0.2em 0.9em;
+    color: #525252;
+}
