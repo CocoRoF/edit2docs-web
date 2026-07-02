@@ -20,6 +20,8 @@ export interface JobResponse {
 
 export interface JobResult {
     pptx_asset_id?: string;
+    doc_asset_id?: string;
+    format?: string; // pptx | docx | xlsx
     page_count?: number;
     spec_lock?: string;
     design_spec?: string;

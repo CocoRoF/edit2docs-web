@@ -52,27 +52,21 @@ export default function JobPage({
         }
     }, [id]);
 
+    const terminal =
+        job?.status === "done" ||
+        job?.status === "failed" ||
+        job?.status === "cancelled";
+
     useEffect(() => {
-        if (!id) return;
+        if (!id || terminal) return;
         void fetchJob();
-        // Poll every 2s while the job is non-terminal.
+        // Poll every 2s while the job is non-terminal; the effect re-runs
+        // (and skips scheduling) once a terminal status lands.
         const t = setInterval(() => {
             void fetchJob();
         }, 2_000);
         return () => clearInterval(t);
-    }, [id, fetchJob]);
-
-    useEffect(() => {
-        if (!job) return;
-        if (
-            job.status === "done" ||
-            job.status === "failed" ||
-            job.status === "cancelled"
-        ) {
-            // No more polling needed — the next render cycle's interval will
-            // clear naturally as the job stops changing.
-        }
-    }, [job]);
+    }, [id, fetchJob, terminal]);
 
     return (
         <main className="flex-1 flex flex-col items-center px-6 py-12 max-w-5xl mx-auto w-full">
@@ -112,10 +106,14 @@ export default function JobPage({
             {job && (
                 <section className="mt-8 w-full space-y-6">
                     <StatusBanner job={job} />
-                    {job.status === "done" && job.result.pptx_asset_id && (
+                    {job.status === "done" &&
+                        (job.result.doc_asset_id ?? job.result.pptx_asset_id) && (
                         <DownloadCard
-                            assetId={job.result.pptx_asset_id}
+                            assetId={
+                                job.result.doc_asset_id ?? job.result.pptx_asset_id!
+                            }
                             pageCount={job.result.page_count ?? 0}
+                            format={job.result.format ?? "pptx"}
                         />
                     )}
                     {job.result.quality_issues &&
@@ -174,7 +172,14 @@ function StatusBanner({ job }: { job: JobResponse }) {
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <Field label="언어" value={String(job.params.lang ?? "ko-KR")} />
                 <Field label="스타일" value={String(job.params.style ?? "general")} />
-                <Field label="페이지 수" value={String(job.result.page_count ?? "—")} />
+                <Field
+                    label="페이지 수"
+                    value={
+                        job.result.format && job.result.format !== "pptx"
+                            ? "—"
+                            : String(job.result.page_count ?? "—")
+                    }
+                />
                 <Field
                     label="생성 시간"
                     value={`${Math.round(Number(job.cost.duration_seconds ?? 0))}초`}
@@ -193,25 +198,36 @@ function Field({ label, value }: { label: string; value: string }) {
     );
 }
 
+const FORMAT_LABEL: Record<string, string> = {
+    pptx: "PPTX",
+    docx: "Word (DOCX)",
+    xlsx: "Excel (XLSX)",
+};
+
 function DownloadCard({
     assetId,
     pageCount,
+    format,
 }: {
     assetId: string;
     pageCount: number;
+    format: string;
 }) {
+    const label = FORMAT_LABEL[format] ?? format.toUpperCase();
     return (
         <div className="rounded-xl border border-primary-200 bg-primary-50/40 px-5 py-5">
-            <h2 className="font-semibold text-neutral-900">📥 PPTX 다운로드</h2>
+            <h2 className="font-semibold text-neutral-900">{label} 다운로드</h2>
             <p className="mt-1 text-sm text-neutral-600">
-                {pageCount}페이지 — 한글 파일명이 그대로 보존됩니다.
+                {format === "pptx" && pageCount > 0
+                    ? `${pageCount}페이지 — 한글 파일명이 그대로 보존됩니다.`
+                    : "한글 파일명이 그대로 보존됩니다."}
             </p>
             <a
                 href={withBase(`/api/assets/${assetId}/download`)}
                 className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 font-medium text-white shadow-sm hover:bg-primary-700 transition-colors"
             >
                 <Download className="size-4" />
-                PPTX 받기
+                {label} 받기
             </a>
         </div>
     );

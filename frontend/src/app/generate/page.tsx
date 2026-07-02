@@ -40,11 +40,11 @@ export default function GeneratePage() {
         <main className="flex-1 flex flex-col items-center px-6 py-12 max-w-5xl mx-auto w-full">
             <header className="w-full text-center">
                 <h1 className="mt-2 text-3xl font-bold text-neutral-900">
-                    {inProgress ? "생성 진행 중" : "PPT 생성"}
+                    {inProgress ? "생성 진행 중" : "문서 생성"}
                 </h1>
                 <p className="mt-3 text-neutral-600">
                     {inProgress
-                        ? "진행 상황을 실시간으로 받아옵니다. 완료되면 결과 PPTX 와 미리보기가 나타납니다."
+                        ? "진행 상황을 실시간으로 받아옵니다. 완료되면 결과 문서와 미리보기가 나타납니다."
                         : "발표 의도와 Anthropic 키만 있으면 시작할 수 있습니다. 소스 파일은 선택입니다."}
                 </p>
             </header>

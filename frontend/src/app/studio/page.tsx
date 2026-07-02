@@ -27,7 +27,7 @@ const STAGE_LABEL: Record<string, string> = {
     analyzing_deck: "덱 렌더링 중…",
     planning_edits: "편집 계획 수립 중…",
     editing_slides: "슬라이드 편집 중…",
-    applying_edits: "PPTX 반영 중…",
+    applying_edits: "문서 반영 중…",
     done: "완료",
     failed: "실패",
 };
@@ -124,6 +124,7 @@ export default function StudioPage() {
                 }
                 setMessages((prev) => [...prev, { role: "assistant", content: msg, kind: "error" }]);
                 setSlides([]);
+                setDocHtml("");
                 return;
             }
             const body = (await res.json()) as {
@@ -134,6 +135,17 @@ export default function StudioPage() {
             setDocFormat(body.format);
             setSlides(body.slides ?? []);
             setDocHtml(body.html ?? "");
+        } catch (err) {
+            setMessages((prev) => [
+                ...prev,
+                {
+                    role: "assistant",
+                    content: `미리보기 요청 중 오류: ${err instanceof Error ? err.message : String(err)}`,
+                    kind: "error",
+                },
+            ]);
+            setSlides([]);
+            setDocHtml("");
         } finally {
             setPreviewLoading(false);
         }
@@ -151,29 +163,29 @@ export default function StudioPage() {
 
     const handleUploaded = useCallback(
         (asset: UploadedAsset) => {
-            setDeck({ assetId: asset.id, filename: asset.original_filename ?? "deck.pptx" });
+            setDeck({ assetId: asset.id, filename: asset.original_filename ?? "document" });
             setRevisions([asset.id]);
             setMessages([]);
             setSlides([]);
+            setDocHtml("");
+            setDocFormat("pptx");
             void loadPreview(asset.id);
         },
         [loadPreview],
     );
 
     const undo = useCallback(() => {
-        setRevisions((prev) => {
-            if (prev.length < 2) return prev;
-            const next = prev.slice(0, -1);
-            const assetId = next[next.length - 1];
-            setDeck((d) => (d ? { ...d, assetId } : d));
-            void loadPreview(assetId);
-            setMessages((m) => [
-                ...m,
-                { role: "assistant", content: "이전 버전으로 되돌렸습니다." },
-            ]);
-            return next;
-        });
-    }, [loadPreview]);
+        if (revisions.length < 2) return;
+        const next = revisions.slice(0, -1);
+        const assetId = next[next.length - 1];
+        setRevisions(next);
+        setDeck((d) => (d ? { ...d, assetId } : d));
+        setMessages((m) => [
+            ...m,
+            { role: "assistant", content: "이전 버전으로 되돌렸습니다." },
+        ]);
+        void loadPreview(assetId);
+    }, [revisions, loadPreview]);
 
     // ----- chat turn --------------------------------------------------------
     const finishTurn = useCallback(
@@ -234,7 +246,7 @@ export default function StudioPage() {
                 .map((m) => ({ role: m.role, content: m.content }));
             const label =
                 attachments.length > 0
-                    ? `${instruction}\n📎 ${attachments
+                    ? `${instruction}\n[첨부] ${attachments
                           .map((a) => a.original_filename ?? "파일")
                           .join(", ")}`
                     : instruction;
@@ -256,7 +268,7 @@ export default function StudioPage() {
                         source_asset_ids: attachments.map((a) => a.id),
                         lang: config.lang,
                         model: config.model,
-                        output_basename: deck.filename.replace(/\.pptx$/i, "") || "deck",
+                        output_basename: deck.filename.replace(/\.(pptx|docx|xlsx)$/i, "") || "document",
                     }),
                 });
                 if (!res.ok) {
@@ -309,7 +321,7 @@ export default function StudioPage() {
                                 col: target.col ?? null,
                             },
                         ],
-                        output_basename: deck.filename.replace(/\.pptx$/i, "") || "deck",
+                        output_basename: deck.filename.replace(/\.(pptx|docx|xlsx)$/i, "") || "document",
                     }),
                 });
                 if (!res.ok) {
@@ -346,6 +358,8 @@ export default function StudioPage() {
         setDeck(null);
         setRevisions([]);
         setSlides([]);
+        setDocHtml("");
+        setDocFormat("pptx");
         setMessages([]);
         setJobId(null);
         setBusy(false);
