@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageSquareText } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import ChatPanel, {
     type ChatMessage,
@@ -35,6 +35,45 @@ const STAGE_LABEL: Record<string, string> = {
 const PANEL_WIDTH_KEY = "e2p-studio-panel-width";
 const PANEL_MIN = 320;
 const PANEL_MAX = 680;
+
+/** One op descriptor from the live-edit stream (message_vars.op / .plan). */
+interface EditOp {
+    action?: string;
+    phase?: "start" | "done";
+    status?: string;
+    target?: Record<string, unknown>;
+}
+
+/**
+ * Map a live-edit op target to a CSS selector over the preview's
+ * data-e2d-* addresses (engine v0.4.0). Returns null for targets the
+ * canvas cannot locate (e.g. whole-sheet appends, para -1 inserts).
+ */
+function opTargetSelector(target: Record<string, unknown> | undefined): string | null {
+    if (!target) return null;
+    switch (target.kind) {
+        case "paragraph":
+        case "paragraph_after": {
+            const para = Number(target.para);
+            return Number.isInteger(para) && para >= 0
+                ? `[data-e2d-para="${para}"]`
+                : null;
+        }
+        case "table_cell": {
+            const { table, row, col } = target;
+            return `[data-e2d-table="${Number(table)}"] [data-e2d-cell="${Number(row)},${Number(col)}"]`;
+        }
+        case "cell": {
+            const sheet = CSS.escape(String(target.sheet ?? ""));
+            const cell = String(target.cell ?? "").replace(/[^A-Za-z0-9]/g, "");
+            return cell ? `[data-e2d-sheet="${sheet}"] [data-e2d-cell="${cell}"]` : null;
+        }
+        case "sheet":
+            return `[data-e2d-sheet="${CSS.escape(String(target.sheet ?? ""))}"]`;
+        default:
+            return null;
+    }
+}
 
 interface DeckState {
     assetId: string;
@@ -238,6 +277,31 @@ export default function StudioPage() {
     const lastStage = [...events].reverse().find((e) => typeof e.payload.stage === "string")
         ?.payload.stage as string | undefined;
 
+    // Live-edit op stream (engine v0.3.0+): the op being applied right
+    // now, and every applied target of the turn — located in the preview
+    // via its data-e2d-* addresses (engine v0.4.0).
+    const liveTarget = useMemo(() => {
+        for (let i = events.length - 1; i >= 0; i--) {
+            const op = events[i].payload.message_vars?.op as EditOp | undefined;
+            if (op) {
+                if (op.phase === "done" && i === events.length - 1) return null;
+                return opTargetSelector(op.target);
+            }
+        }
+        return null;
+    }, [events]);
+    const flashTargets = useMemo(() => {
+        const selectors: string[] = [];
+        for (const event of events) {
+            const op = event.payload.message_vars?.op as EditOp | undefined;
+            if (op?.phase === "done" && op.status === "applied") {
+                const selector = opTargetSelector(op.target);
+                if (selector && !selectors.includes(selector)) selectors.push(selector);
+            }
+        }
+        return selectors;
+    }, [events]);
+
     const send = useCallback(
         async (instruction: string, attachments: UploadedAsset[]) => {
             if (!deck) return;
@@ -440,6 +504,8 @@ export default function StudioPage() {
                         canUndo={revisions.length > 1}
                         onUndo={undo}
                         onReset={reset}
+                        liveTarget={busy ? liveTarget : null}
+                        flashTargets={flashTargets}
                     />
                 )}
             </section>
