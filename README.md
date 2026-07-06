@@ -1,65 +1,75 @@
 # edit2docs-web
 
-Korean-first web UI for the [edit2docs](https://github.com/CocoRoF/edit2docs) engine.
-Served at `${basePath}` by [hr_blog2.0](https://github.com/CocoRoF/hr_blog2.0)
-(default `/edit2docs`). Mirrors the architecture of
-[Edit2me](https://github.com/CocoRoF/Edit2me) so the blog's compose can
-bring it up the same way.
+**Web studio for the [edit2docs](https://github.com/CocoRoF/edit2docs) engine —
+generate & chat-edit PPT · Word · Excel in the browser. English-first UI with
+full Korean support (KO/EN toggle).**
 
 | | |
 |---|---|
 | Stack | Next.js 15 (App Router) · React 19 · TypeScript · Tailwind CSS |
 | basePath | `/edit2docs` (override with `NEXT_PUBLIC_BASE_PATH`) |
-| Health probe | `GET ${basePath}/api/health` |
-| Engine | calls `http://edit2docs-server:8000` over docker network |
+| Engine | `EDIT2DOCS_SERVER_INTERNAL_URL` (default `http://edit2docs-server:8000`) + `EDIT2DOCS_SERVER_API_KEY` bearer |
+| Health probe | `GET ${basePath}/api/health` (reports the deployed engine commit) |
+| i18n | dependency-free EN/KO dictionaries, header toggle, `Accept-Language` + job `lang` follow the active locale |
 
 ## What it does
 
-1. Upload a Korean PDF / DOCX / PPTX / XLSX.
-2. Paste your Anthropic key (BYOK — never persisted).
-3. Pick deck options (lang, style, page count, narration, image gen).
-4. Watch each pipeline stage stream in (SSE).
-5. Preview pages as they're produced.
-6. Download the editable PPTX with the original Korean filename preserved.
+**Generate** (`/generate`): upload PDF / DOCX / PPTX / XLSX sources (Unicode
+filenames round-trip intact), paste your Anthropic key (BYOK — never
+persisted), pick the output format and options (language, style, page count,
+narration, image generation), and watch every pipeline stage stream in over
+SSE. Result page ships the editable file plus design-spec / spec-lock /
+quality-issue viewers and a cost summary.
 
-Plus an MCP connection guide so AI Agents (Claude Desktop / Cursor) can
-hit the same engine.
+**Co-edit** (`/studio`): open any PPTX / DOCX / XLSX and edit it by chatting.
+The canvas shows the engine's *addressable* preview — per-slide SVG for decks,
+`data-e2d-*`-tagged HTML for documents and spreadsheets — and while a turn
+streams, **the exact paragraph / cell / slide each operation touches is
+highlighted live**, then flashed once the refreshed preview lands. Undo steps
+back through the revision chain; untouched content is byte-identical by
+engine contract. Double-click inline text editing on slides.
 
-## Status
+**MCP guide** (`/docs/mcp`): connection instructions so AI agents
+(Claude Desktop / Claude Code / Cursor) can drive the same engine directly.
 
-All 5 user-facing milestones (W0–W5) are merged. The hr_blog2.0
-integration PR is at https://github.com/CocoRoF/hr_blog2.0/pull/22.
-
-| Milestone | What ships |
-|---|---|
-| W0 | Next.js 15 scaffold, basePath, Korean typography, /api/health |
-| W1 | hr_blog2.0 compose + nginx routes (`/edit2docs`, `/edit2docs-api`, `/edit2docs-mcp`, `/edit2docs-mcp-sse`), redis, edit2docs-server |
-| W2 | Upload screen — drag-and-drop, Korean filename roundtrip end-to-end |
-| W3 | Generate form (BYOK Anthropic key + options) + SSE live progress (Korean stage labels) |
-| W4 | Job result view — PPTX download (Korean filename preserved), design_spec + spec_lock viewers, quality issues, cost summary |
-| W5 | Site header / footer with live engine commit, polished home page with feature grid + 4-step flow + MCP callout |
-
-## Local dev (without hr_blog2.0)
+## Local dev (against any engine)
 
 ```bash
 cd frontend/src
 npm install
-NEXT_PUBLIC_BASE_PATH="" npm run dev
+NEXT_PUBLIC_BASE_PATH="" \
+EDIT2DOCS_SERVER_INTERNAL_URL=http://localhost:8000 \
+npm run dev
 # → http://localhost:3000/
 ```
 
-To run with the same basePath used in production:
+Run the engine locally first: `pip install "edit2docs[server]" && edit2docs serve`.
 
-```bash
-NEXT_PUBLIC_BASE_PATH=/edit2docs npm run dev
-# → http://localhost:3000/edit2docs
-```
+To mirror production's basePath: `NEXT_PUBLIC_BASE_PATH=/edit2docs npm run dev`
+→ `http://localhost:3000/edit2docs`.
+
+## Production reference
+
+[hr_blog2.0](https://github.com/CocoRoF/hr_blog2.0)'s compose stack runs this
+app next to the engine behind nginx (`/edit2docs` → this UI, `/edit2docs-api`
+→ engine REST, `/edit2docs-mcp*` → engine MCP). Its `edit2docs-web/`
+Dockerfile clones this repo at build time — see that repo for the full
+service topology.
+
+## Languages
+
+The UI defaults to English and resolves the visitor's locale client-side
+(saved preference → browser language), so Korean-browser visitors land on a
+fully Korean UI automatically; a header toggle switches any time. The active
+locale rides every engine call as `Accept-Language` and seeds the job `lang`,
+so generated documents and the engine's live-edit labels match the UI
+language. Korean is a complete translation, not a subset (241 keys per
+locale, compile-time key-shape enforcement).
 
 ## Architecture
 
-See [PLAN.md](./PLAN.md) for the full design — service topology, URL
-surface, screens, Korean-filename round-trip, BYOK handling, and the
-W0–W5 PR plan.
+See [PLAN.md](./PLAN.md) for the original design — service topology, URL
+surface, screens, Unicode-filename round-trip, and BYOK handling.
 
 ## License
 
@@ -67,6 +77,6 @@ W0–W5 PR plan.
 
 ## Acknowledgments
 
-Engine: [edit2docs](https://github.com/CocoRoF/edit2docs) (built on
-[ppt-master](https://github.com/hugohe3/ppt-master), MIT).
-Pattern: [Edit2me](https://github.com/CocoRoF/Edit2me).
+Engine: [edit2docs](https://github.com/CocoRoF/edit2docs) (PPTX core built on
+[ppt-master](https://github.com/hugohe3/ppt-master), MIT — synced through
+v3.1). Pattern: [Edit2me](https://github.com/CocoRoF/Edit2me).
