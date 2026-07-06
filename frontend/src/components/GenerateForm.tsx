@@ -4,6 +4,7 @@ import { Zap, Key, Settings2, Paperclip, LayoutTemplate } from "lucide-react";
 import { useState } from "react";
 
 import { withBase } from "@/lib/basePath";
+import { localeTag, useLocale, useT } from "@/lib/i18n";
 
 import UploadDropzone, { type UploadedAsset } from "./UploadDropzone";
 
@@ -23,16 +24,21 @@ type SubmitState =
 
 type DeckMode = "template_restyle" | "template_extend";
 
+type JobLang = "ko-KR" | "en-US" | "zh-CN" | "ja-JP";
+
 const PPTX_MIME =
     "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
 export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
+    const t = useT();
+    const { locale } = useLocale();
     const [outputFormat, setOutputFormat] = useState<"pptx" | "docx" | "xlsx">("pptx");
     const [asset, setAsset] = useState<UploadedAsset | null>(null);
     const [templateAsset, setTemplateAsset] = useState<UploadedAsset | null>(null);
     const [deckMode, setDeckMode] = useState<DeckMode>("template_restyle");
     const [intent, setIntent] = useState("");
-    const [lang, setLang] = useState<"ko-KR" | "en-US" | "zh-CN" | "ja-JP">("ko-KR");
+    // null = follow the active UI locale; set once the user picks explicitly.
+    const [langChoice, setLangChoice] = useState<JobLang | null>(null);
     const [style, setStyle] = useState<"general" | "consultant" | "consultant-top">("general");
     const [minPages, setMinPages] = useState(8);
     const [maxPages, setMaxPages] = useState(12);
@@ -42,6 +48,7 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
     const [enableNarration, setEnableNarration] = useState(false);
     const [state, setState] = useState<SubmitState>({ kind: "idle" });
 
+    const lang: JobLang = langChoice ?? localeTag(locale);
     const ready = intent.trim().length >= 4 && anthropicKey.trim().length > 0;
 
     async function handleSubmit(e: React.FormEvent) {
@@ -69,7 +76,7 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Accept-Language": "ko-KR",
+                    "Accept-Language": localeTag(locale),
                     "X-Anthropic-API-Key": anthropicKey.trim(),
                     ...(enableImages && openaiKey.trim()
                         ? { "X-OpenAI-API-Key": openaiKey.trim() }
@@ -79,7 +86,7 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
             });
 
             if (!res.ok) {
-                let msg = `요청에 실패했습니다 (HTTP ${res.status})`;
+                let msg = t.errors.requestFailed(res.status);
                 try {
                     const j = (await res.json()) as { error?: { message?: string } };
                     if (j.error?.message) msg = j.error.message;
@@ -99,21 +106,21 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
         } catch (err) {
             setState({
                 kind: "error",
-                message: `요청 중 오류: ${
-                    err instanceof Error ? err.message : String(err)
-                }`,
+                message: t.errors.requestError(
+                    err instanceof Error ? err.message : String(err),
+                ),
             });
         }
     }
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6 w-full">
-            <Field label="문서 형식" required>
+            <Field label={t.form.formatLabel} required>
                 <div className="grid grid-cols-3 gap-2">
                     {([
-                        ["pptx", "PPT", "프레젠테이션"],
-                        ["docx", "Word", "보고서·문서"],
-                        ["xlsx", "Excel", "표·데이터"],
+                        ["pptx", "PPT", t.form.formatPptxHint],
+                        ["docx", "Word", t.form.formatDocxHint],
+                        ["xlsx", "Excel", t.form.formatXlsxHint],
                     ] as const).map(([value, label, hint]) => (
                         <button
                             key={value}
@@ -134,8 +141,8 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
             </Field>
 
             <Field
-                label="작성 의도"
-                hint="어떤 문서를 만들지 한 문장으로. 예) Q3 영업 결과 임원 보고."
+                label={t.form.intentLabel}
+                hint={t.form.intentHint}
                 required
             >
                 <textarea
@@ -143,13 +150,13 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
                     onChange={(e) => setIntent(e.target.value)}
                     rows={3}
                     className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    placeholder="Q3 영업 결과 임원 보고. 성장 견인 부문 + 다음 분기 우선순위를 6-10페이지로."
+                    placeholder={t.form.intentPlaceholder}
                 />
             </Field>
 
             <Field
-                label="Anthropic API 키 (BYOK)"
-                hint="이 요청에만 사용하고 저장하지 않습니다. sk-ant-… 로 시작."
+                label={t.form.anthropicKeyLabel}
+                hint={t.form.anthropicKeyHint}
                 required
                 icon={<Key className="size-4" />}
             >
@@ -169,10 +176,11 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
             >
                 <summary className="flex cursor-pointer items-center gap-2 font-medium text-neutral-800 select-none">
                     <Paperclip className="size-4" />
-                    소스 파일 첨부 <span className="text-xs font-normal text-neutral-500">(선택)</span>
+                    {t.form.sourceSummary}{" "}
+                    <span className="text-xs font-normal text-neutral-500">{t.form.optionalTag}</span>
                 </summary>
                 <p className="mt-2 mb-3 text-xs text-neutral-500">
-                    소스 없이도 작성 의도만으로 생성할 수 있습니다. 첨부하면 그 내용을 바탕으로 문서를 설계합니다.
+                    {t.form.sourceHint}
                 </p>
                 <UploadDropzone onUploaded={setAsset} onCleared={() => setAsset(null)} />
             </details>
@@ -184,16 +192,16 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
             >
                 <summary className="flex cursor-pointer items-center gap-2 font-medium text-neutral-800 select-none">
                     <LayoutTemplate className="size-4" />
-                    템플릿 PPTX <span className="text-xs font-normal text-neutral-500">(선택)</span>
+                    {t.form.templateSummary}{" "}
+                    <span className="text-xs font-normal text-neutral-500">{t.form.optionalTag}</span>
                 </summary>
                 <p className="mt-2 mb-3 text-xs text-neutral-500">
-                    보유한 PPTX를 업로드하면 그 파일의 슬라이드 마스터·테마 색·폰트를
-                    그대로 물려받아 생성합니다. 소스 파일과는 별개입니다.
+                    {t.form.templateHint}
                 </p>
                 <UploadDropzone
                     inputId="upload-template"
                     accept={PPTX_MIME}
-                    formatsLabel="PPTX 전용 (최대 200 MB)"
+                    formatsLabel={t.form.templateFormats}
                     compact
                     onUploaded={setTemplateAsset}
                     onCleared={() => setTemplateAsset(null)}
@@ -201,23 +209,23 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
                 {templateAsset && (
                     <fieldset className="mt-4 space-y-2">
                         <legend className="text-sm font-medium text-neutral-800">
-                            템플릿 사용 방식
+                            {t.form.templateModeLegend}
                         </legend>
                         <Radio
                             name="deck-mode"
                             value="template_restyle"
                             checked={deckMode === "template_restyle"}
                             onChange={() => setDeckMode("template_restyle")}
-                            label="새 문서 생성 (restyle)"
-                            hint="템플릿의 디자인 위에 새 덱을 만듭니다. 원본 슬라이드는 제거됩니다."
+                            label={t.form.restyleLabel}
+                            hint={t.form.restyleHint}
                         />
                         <Radio
                             name="deck-mode"
                             value="template_extend"
                             checked={deckMode === "template_extend"}
                             onChange={() => setDeckMode("template_extend")}
-                            label="기존 문서에 슬라이드 추가 (extend)"
-                            hint="원본 슬라이드를 유지하고, 생성된 슬라이드를 그 뒤에 덧붙입니다."
+                            label={t.form.extendLabel}
+                            hint={t.form.extendHint}
                         />
                     </fieldset>
                 )}
@@ -227,27 +235,24 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
             <details className="rounded-lg border border-neutral-200 px-4 py-3">
                 <summary className="flex cursor-pointer items-center gap-2 font-medium text-neutral-800 select-none">
                     <Settings2 className="size-4" />
-                    추가 옵션
+                    {t.form.moreOptions}
                 </summary>
                 <div className="mt-4 grid sm:grid-cols-2 gap-4">
-                    <Field label="언어">
+                    <Field label={t.form.langLabel}>
                         <select
                             value={lang}
-                            onChange={(e) =>
-                                setLang(
-                                    e.target.value as "ko-KR" | "en-US" | "zh-CN" | "ja-JP",
-                                )
-                            }
+                            onChange={(e) => setLangChoice(e.target.value as JobLang)}
                             className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm bg-white"
                         >
-                            <option value="ko-KR">한국어 (ko-KR)</option>
+                            {/* Locale-native labels by design. */}
                             <option value="en-US">English (en-US)</option>
+                            <option value="ko-KR">한국어 (ko-KR)</option>
                             <option value="zh-CN">简体中文 (zh-CN)</option>
                             <option value="ja-JP">日本語 (ja-JP)</option>
                         </select>
                     </Field>
                     {outputFormat === "pptx" && (
-                    <Field label="스타일">
+                    <Field label={t.form.styleLabel}>
                         <select
                             value={style}
                             onChange={(e) =>
@@ -260,14 +265,14 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
                             }
                             className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm bg-white"
                         >
-                            <option value="general">일반 (general)</option>
-                            <option value="consultant">컨설팅 (consultant)</option>
-                            <option value="consultant-top">최고급 컨설팅 (consultant-top)</option>
+                            <option value="general">{t.form.styleGeneral}</option>
+                            <option value="consultant">{t.form.styleConsultant}</option>
+                            <option value="consultant-top">{t.form.styleConsultantTop}</option>
                         </select>
                     </Field>
                     )}
                     {outputFormat === "pptx" && (
-                    <Field label="최소 페이지 수">
+                    <Field label={t.form.minPages}>
                         <input
                             type="number"
                             min={2}
@@ -279,7 +284,7 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
                     </Field>
                     )}
                     {outputFormat === "pptx" && (
-                    <Field label="최대 페이지 수">
+                    <Field label={t.form.maxPages}>
                         <input
                             type="number"
                             min={2}
@@ -292,22 +297,22 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
                     )}
                     {outputFormat === "pptx" && (
                     <Toggle
-                        label="이미지 자동 생성 (OpenAI 필요)"
+                        label={t.form.imagesToggle}
                         checked={enableImages}
                         onChange={setEnableImages}
                     />
                     )}
                     {outputFormat === "pptx" && (
                     <Toggle
-                        label="한국어 내레이션 (Edge-TTS, 무료)"
+                        label={t.form.narrationToggle}
                         checked={enableNarration}
                         onChange={setEnableNarration}
                     />
                     )}
                     {outputFormat === "pptx" && enableImages && (
                         <Field
-                            label="OpenAI API 키 (이미지 생성)"
-                            hint="이미지 생성에만 사용, 저장하지 않습니다."
+                            label={t.form.openaiKeyLabel}
+                            hint={t.form.openaiKeyHint}
                             full
                         >
                             <input
@@ -333,7 +338,7 @@ export default function GenerateForm({ onSubmitted }: GenerateFormProps) {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-6 py-3 font-medium text-white shadow-sm transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
             >
                 <Zap className="size-4" />
-                {state.kind === "submitting" ? "요청 보내는 중…" : "문서 생성 시작"}
+                {state.kind === "submitting" ? t.form.submitting : t.form.submit}
             </button>
         </form>
     );

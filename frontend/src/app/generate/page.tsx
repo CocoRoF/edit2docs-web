@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 import GenerateForm from "@/components/GenerateForm";
 import ProgressTimeline from "@/components/ProgressTimeline";
 import { useJobEvents, type JobEvent } from "@/hooks/useJobEvents";
+import { useT } from "@/lib/i18n";
 
 /**
  * Generate screen.
@@ -16,6 +17,7 @@ import { useJobEvents, type JobEvent } from "@/hooks/useJobEvents";
  */
 export default function GeneratePage() {
     const router = useRouter();
+    const t = useT();
     const [jobId, setJobId] = useState<string | null>(null);
     const [terminal, setTerminal] = useState<JobEvent | null>(null);
 
@@ -40,12 +42,12 @@ export default function GeneratePage() {
         <main className="flex-1 flex flex-col items-center px-6 py-12 max-w-5xl mx-auto w-full">
             <header className="w-full text-center">
                 <h1 className="mt-2 text-3xl font-bold text-neutral-900">
-                    {inProgress ? "생성 진행 중" : "문서 생성"}
+                    {inProgress ? t.generate.titleInProgress : t.generate.title}
                 </h1>
                 <p className="mt-3 text-neutral-600">
                     {inProgress
-                        ? "진행 상황을 실시간으로 받아옵니다. 완료되면 결과 문서와 미리보기가 나타납니다."
-                        : "발표 의도와 Anthropic 키만 있으면 시작할 수 있습니다. 소스 파일은 선택입니다."}
+                        ? t.generate.subtitleInProgress
+                        : t.generate.subtitle}
                 </p>
             </header>
 
@@ -80,6 +82,7 @@ function TerminalSummary({
     jobId: string;
     terminal: JobEvent;
 }) {
+    const t = useT();
     const stage = terminal.payload.stage ?? "?";
     const isDone = stage === "done";
     return (
@@ -91,13 +94,13 @@ function TerminalSummary({
             }
         >
             <h3 className="font-semibold text-neutral-900">
-                {isDone ? "생성이 완료되었습니다" : "작업이 실패했습니다"}
+                {isDone ? t.generate.doneTitle : t.generate.failedTitle}
             </h3>
             <p className="mt-1 text-sm text-neutral-700">
                 job id <code className="font-mono">{jobId.slice(0, 8)}…</code>
             </p>
             <p className="mt-3 text-xs text-neutral-600">
-                결과 페이지로 이동합니다…
+                {t.generate.redirecting}
             </p>
         </div>
     );

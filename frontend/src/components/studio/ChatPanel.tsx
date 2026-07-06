@@ -13,6 +13,7 @@ import {
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 
 import { withBase } from "@/lib/basePath";
+import { localeTag, useLocale, useT } from "@/lib/i18n";
 import type { UploadedAsset } from "@/components/UploadDropzone";
 
 /** One rendered chat bubble. */
@@ -52,25 +53,6 @@ const ATTACH_ACCEPT =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet," +
     "text/html,application/epub+zip";
 
-const MODELS = [
-    { value: "claude-opus-4-7", label: "Claude Opus 4.7 (기본)" },
-    { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (빠름)" },
-];
-
-const OP_LABEL: Record<string, string> = {
-    // pptx slide ops
-    edit: "수정",
-    add: "추가",
-    delete: "삭제",
-    // docx paragraph ops
-    replace: "교체",
-    insert_after: "삽입",
-    // xlsx ops
-    set_cell: "셀 수정",
-    append_rows: "행 추가",
-    add_sheet: "시트 추가",
-};
-
 /**
  * Left-hand panel of the studio: BYOK config on top, chat transcript in
  * the middle, instruction input at the bottom.
@@ -84,6 +66,8 @@ export default function ChatPanel({
     stageLabel,
     disabled,
 }: ChatPanelProps) {
+    const t = useT();
+    const { locale } = useLocale();
     const [draft, setDraft] = useState("");
     const [attachments, setAttachments] = useState<UploadedAsset[]>([]);
     const [uploading, setUploading] = useState(false);
@@ -92,6 +76,11 @@ export default function ChatPanel({
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const scrollRef = useRef<HTMLDivElement | null>(null);
+
+    const models = [
+        { value: "claude-opus-4-7", label: t.chat.modelOpus },
+        { value: "claude-sonnet-4-6", label: t.chat.modelSonnet },
+    ];
 
     useEffect(() => {
         scrollRef.current?.scrollTo({
@@ -158,7 +147,7 @@ export default function ChatPanel({
     async function attachFile(file: File) {
         setAttachError(null);
         if (file.size > 200 * 1024 * 1024) {
-            setAttachError("파일이 200 MB를 초과합니다.");
+            setAttachError(t.chat.attachTooLarge);
             return;
         }
         setUploading(true);
@@ -168,17 +157,17 @@ export default function ChatPanel({
             const res = await fetch(withBase("/api/upload"), {
                 method: "POST",
                 body: form,
-                headers: { "Accept-Language": "ko-KR" },
+                headers: { "Accept-Language": localeTag(locale) },
             });
             if (!res.ok) {
-                setAttachError(`첨부 업로드 실패 (HTTP ${res.status})`);
+                setAttachError(t.chat.attachUploadFailed(res.status));
                 return;
             }
             const asset = (await res.json()) as UploadedAsset;
             setAttachments((prev) => [...prev, asset]);
         } catch (err) {
             setAttachError(
-                `첨부 중 오류: ${err instanceof Error ? err.message : String(err)}`,
+                t.chat.attachError(err instanceof Error ? err.message : String(err)),
             );
         } finally {
             setUploading(false);
@@ -193,10 +182,10 @@ export default function ChatPanel({
             >
                 <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-neutral-800 select-none">
                     <Settings2 className="size-4" />
-                    설정
+                    {t.chat.settings}
                     {keyMissing && (
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                            API 키 필요
+                            {t.chat.keyRequired}
                         </span>
                     )}
                 </summary>
@@ -204,7 +193,7 @@ export default function ChatPanel({
                     <label className="block space-y-1">
                         <span className="flex items-center gap-1.5 text-xs font-medium text-neutral-700">
                             <Key className="size-3.5" />
-                            Anthropic API 키 (BYOK)
+                            {t.chat.anthropicKeyLabel}
                         </span>
                         <input
                             type="password"
@@ -217,12 +206,12 @@ export default function ChatPanel({
                             className="w-full rounded-md border border-neutral-300 px-2.5 py-1.5 font-mono text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         />
                         <span className="block text-[11px] text-neutral-500">
-                            편집 요청에만 사용하며 저장하지 않습니다. 새로고침하면 다시 입력해야 합니다.
+                            {t.chat.keyHint}
                         </span>
                     </label>
                     <div className="grid grid-cols-2 gap-3">
                         <label className="block space-y-1">
-                            <span className="text-xs font-medium text-neutral-700">모델</span>
+                            <span className="text-xs font-medium text-neutral-700">{t.chat.modelLabel}</span>
                             <select
                                 value={config.model}
                                 onChange={(e) =>
@@ -230,7 +219,7 @@ export default function ChatPanel({
                                 }
                                 className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs"
                             >
-                                {MODELS.map((m) => (
+                                {models.map((m) => (
                                     <option key={m.value} value={m.value}>
                                         {m.label}
                                     </option>
@@ -238,7 +227,7 @@ export default function ChatPanel({
                             </select>
                         </label>
                         <label className="block space-y-1">
-                            <span className="text-xs font-medium text-neutral-700">언어</span>
+                            <span className="text-xs font-medium text-neutral-700">{t.chat.langLabel}</span>
                             <select
                                 value={config.lang}
                                 onChange={(e) =>
@@ -249,8 +238,9 @@ export default function ChatPanel({
                                 }
                                 className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs"
                             >
-                                <option value="ko-KR">한국어</option>
+                                {/* Locale-native labels by design. */}
                                 <option value="en-US">English</option>
+                                <option value="ko-KR">한국어</option>
                                 <option value="zh-CN">简体中文</option>
                                 <option value="ja-JP">日本語</option>
                             </select>
@@ -262,16 +252,18 @@ export default function ChatPanel({
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
                 {messages.length === 0 && !busy && (
                     <div className="space-y-2 rounded-lg bg-neutral-50 px-4 py-4 text-sm text-neutral-600">
-                        <p className="font-medium text-neutral-800">이렇게 요청해 보세요</p>
+                        <p className="font-medium text-neutral-800">{t.chat.examplesTitle}</p>
                         <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed">
-                            <li>PPT: 3번 슬라이드 제목을 &lsquo;Q3 실적 요약&rsquo;으로 바꿔줘</li>
-                            <li>Word: 2번 문단 수치를 15%로 고치고 요약 섹션 추가해줘</li>
-                            <li>Excel: B3 셀을 142로 바꾸고 3분기 행을 추가해줘</li>
-                            <li>문서를 첨부하고 &ldquo;이 내용을 반영해줘&rdquo;</li>
-                            <li>이 문서 구성이 어떻게 돼? (질문만 해도 됩니다)</li>
+                            <li>{t.chat.example1}</li>
+                            <li>{t.chat.example2}</li>
+                            <li>{t.chat.example3}</li>
+                            <li>{t.chat.example4}</li>
+                            <li>{t.chat.example5}</li>
                         </ul>
                         <p className="pt-1 text-[11px] text-neutral-500">
-                            팁: PPT는 캔버스에서 텍스트를 <b>더블클릭</b>하면 AI 없이 즉시 수정됩니다.
+                            {t.chat.tipPrefix}
+                            <b>{t.chat.tipStrong}</b>
+                            {t.chat.tipSuffix}
                         </p>
                     </div>
                 )}
@@ -302,9 +294,11 @@ export default function ChatPanel({
                                             key={j}
                                             className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-medium text-neutral-700 border border-neutral-200"
                                         >
-                                            {OP_LABEL[op.action] ?? op.action}
-                                            {op.slide != null && ` ${op.slide}p`}
-                                            {op.after != null && ` ${op.after}p 뒤`}
+                                            {(t.chat.ops as Record<string, string>)[
+                                                op.action
+                                            ] ?? op.action}
+                                            {op.slide != null && ` ${t.chat.slideRef(op.slide)}`}
+                                            {op.after != null && ` ${t.chat.afterRef(op.after)}`}
                                         </span>
                                     ))}
                                 </span>
@@ -317,15 +311,16 @@ export default function ChatPanel({
                     <div className="flex justify-start">
                         <div className="inline-flex items-center gap-2 rounded-2xl bg-neutral-100 px-3.5 py-2.5 text-sm text-neutral-600">
                             <Loader2 className="size-4 animate-spin text-primary-600" />
-                            {stageLabel ?? "작업 중…"}
+                            {stageLabel ?? t.studio.working}
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* 모던 컴포저 — 입력은 위(전체 폭, 위로 자람), 컨트롤은 아래 툴바.
-                hr_blog2.0 AgentInput과 동일한 구조: 첨부 스트립 / 컨테이너
-                (textarea + 툴바) / 하단 힌트 라인. */}
+            {/* Modern composer — input on top (full width, grows upward),
+                controls in the toolbar below. Same structure as hr_blog2.0's
+                AgentInput: attachment strip / container (textarea + toolbar) /
+                bottom hint line. */}
             <div
                 className="relative border-t border-neutral-200 p-3"
                 onDragOver={handleDragOver}
@@ -335,23 +330,23 @@ export default function ChatPanel({
                 {dragOver && (
                     <div className="pointer-events-none absolute inset-2 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary-500 bg-primary-50/80">
                         <span className="text-sm font-medium text-primary-700">
-                            참고 문서를 여기에 떨어뜨리세요
+                            {t.chat.dropHere}
                         </span>
                     </div>
                 )}
 
-                {/* 첨부 strip */}
+                {/* Attachment strip */}
                 {(attachments.length > 0 || uploading) && (
                     <div className="mb-2 flex flex-wrap items-center gap-1.5">
                         {attachments.map((a) => (
                             <span
                                 key={a.id}
                                 className="group inline-flex max-w-full items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-[11px] font-medium text-primary-700"
-                                title={a.original_filename ?? "파일"}
+                                title={a.original_filename ?? t.studio.fileFallback}
                             >
                                 <FileText className="size-3.5 shrink-0" />
                                 <span className="truncate">
-                                    {a.original_filename ?? "파일"}
+                                    {a.original_filename ?? t.studio.fileFallback}
                                 </span>
                                 <button
                                     type="button"
@@ -360,7 +355,7 @@ export default function ChatPanel({
                                             prev.filter((x) => x.id !== a.id),
                                         )
                                     }
-                                    aria-label="첨부 제거"
+                                    aria-label={t.chat.removeAttachment}
                                     className="rounded p-0.5 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
                                 >
                                     <X className="size-3" />
@@ -370,7 +365,7 @@ export default function ChatPanel({
                         {uploading && (
                             <span className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-[11px] text-neutral-500">
                                 <Loader2 className="size-3 animate-spin" />
-                                업로드 중…
+                                {t.chat.uploading}
                             </span>
                         )}
                     </div>
@@ -410,17 +405,17 @@ export default function ChatPanel({
                         disabled={disabled || busy}
                         placeholder={
                             disabled
-                                ? "먼저 문서 파일을 업로드하세요 (PPTX·DOCX·XLSX)"
+                                ? t.chat.placeholderNoDeck
                                 : busy
-                                  ? "편집 반영 중…"
+                                  ? t.chat.placeholderBusy
                                   : attachments.length > 0
-                                    ? "첨부한 문서로 무엇을 할까요? (예: 이 내용으로 5번 슬라이드 채워줘)"
-                                    : "문서를 어떻게 바꿀까요? (Enter 전송, Shift+Enter 줄바꿈, 참고자료: 드래그/클립 버튼)"
+                                    ? t.chat.placeholderAttach
+                                    : t.chat.placeholder
                         }
                         className="block max-h-[180px] w-full resize-none bg-transparent py-1 text-sm leading-relaxed text-neutral-900 placeholder:text-neutral-400 focus:outline-none disabled:opacity-60"
                     />
 
-                    {/* 하단 툴바 — 왼쪽 첨부, 오른쪽 전송 */}
+                    {/* Bottom toolbar — attach on the left, send on the right */}
                     <div className="mt-1.5 flex items-center justify-between gap-2">
                         <button
                             type="button"
@@ -428,8 +423,8 @@ export default function ChatPanel({
                             disabled={!canAttach}
                             title={
                                 canAttach
-                                    ? "참고 문서 첨부 (PDF·DOCX·PPTX·… / 드래그로도 가능)"
-                                    : "덱을 업로드한 뒤 첨부할 수 있습니다"
+                                    ? t.chat.attachTitle
+                                    : t.chat.attachDisabledTitle
                             }
                             className="flex size-9 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-50 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-30"
                         >
@@ -442,9 +437,9 @@ export default function ChatPanel({
                             disabled={!canSend}
                             title={
                                 keyMissing && !disabled
-                                    ? "설정에서 Anthropic API 키를 먼저 입력하세요"
+                                    ? t.chat.sendKeyFirst
                                     : uploading
-                                      ? "첨부 업로드 완료 대기 중…"
+                                      ? t.chat.sendUploading
                                       : undefined
                             }
                             className="flex shrink-0 items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50 px-4 py-2 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
@@ -454,21 +449,26 @@ export default function ChatPanel({
                             ) : (
                                 <Send className="size-4" />
                             )}
-                            전송
+                            {t.chat.send}
                         </button>
                     </div>
                 </div>
 
-                {/* 하단 힌트 라인 */}
+                {/* Bottom hint line */}
                 <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[10px] text-neutral-400">
                     <span>
-                        {MODELS.find((m) => m.value === config.model)?.label ?? config.model}
+                        {models.find((m) => m.value === config.model)?.label ?? config.model}
                         {" · "}
-                        {config.lang === "ko-KR" ? "한국어 응답" : config.lang}
-                        {" · 편집마다 새 버전 생성"}
+                        {config.lang === "ko-KR"
+                            ? t.chat.replyKo
+                            : config.lang === "en-US"
+                              ? t.chat.replyEn
+                              : config.lang}
+                        {" · "}
+                        {t.chat.newVersionPerEdit}
                     </span>
                     {keyMissing && !disabled && (
-                        <span className="text-amber-600">API 키 필요 — 설정에서 입력</span>
+                        <span className="text-amber-600">{t.chat.keyNeededHint}</span>
                     )}
                 </div>
             </div>

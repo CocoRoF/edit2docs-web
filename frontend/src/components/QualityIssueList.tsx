@@ -3,27 +3,23 @@
 import { AlertTriangle, Info, AlertCircle } from "lucide-react";
 
 import type { QualityIssue } from "@/lib/api";
-
-const SEVERITY_LABEL: Record<string, string> = {
-    error: "오류",
-    warning: "경고",
-    info: "정보",
-};
+import { useT } from "@/lib/i18n";
 
 interface QualityIssueListProps {
     issues: QualityIssue[];
 }
 
 export default function QualityIssueList({ issues }: QualityIssueListProps) {
+    const t = useT();
     const errors = issues.filter((i) => i.severity === "error");
     const warnings = issues.filter((i) => i.severity === "warning");
     const infos = issues.filter((i) => i.severity === "info");
     return (
         <div className="rounded-xl border border-neutral-200 px-5 py-4">
             <h2 className="font-semibold text-neutral-900">
-                품질 검사 결과
+                {t.quality.title}
                 <span className="ml-2 text-xs font-normal text-neutral-500">
-                    오류 {errors.length} · 경고 {warnings.length} · 정보 {infos.length}
+                    {t.quality.counts(errors.length, warnings.length, infos.length)}
                 </span>
             </h2>
             <ul className="mt-3 space-y-2 text-sm">
@@ -35,7 +31,10 @@ export default function QualityIssueList({ issues }: QualityIssueListProps) {
                                 {issue.message}
                             </p>
                             <p className="mt-0.5 text-xs text-neutral-500">
-                                {SEVERITY_LABEL[issue.severity] ?? issue.severity} ·
+                                {(t.quality.severity as Record<string, string>)[
+                                    issue.severity
+                                ] ?? issue.severity}{" "}
+                                ·
                                 {issue.page_index !== null && (
                                     <> {issue.page_index + 1}p ·</>
                                 )}{" "}

@@ -2,45 +2,44 @@ import type { Metadata } from "next";
 
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
+import { LocaleProvider } from "@/lib/i18n";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
     title: {
-        default: "edit2docs — 한 줄이면 편집 가능한 PPT·Word·Excel",
+        default: "edit2docs — Editable PPT, Word & Excel from one line",
         template: "%s — edit2docs",
     },
     description:
-        "의도 한 줄로 PPT·Word·Excel을 생성하고 채팅으로 편집하는 AI 문서 엔진. " +
-        "Pretendard 폰트, ko-KR OOXML, 한국 산업/컨설팅 톤이 기본 탑재. " +
-        "MCP로 외부 AI Agent와도 연결됩니다.",
+        "An AI document engine that generates PPT, Word, and Excel from a single line of intent and lets you edit them over chat. " +
+        "English-first · full Korean support — Pretendard typography, ko-KR OOXML, and industry/consulting tones built in. " +
+        "Connects to external AI agents via MCP.",
     keywords: [
         "edit2docs",
-        "한국어 PPT",
-        "AI 프레젠테이션",
-        "ppt-master",
+        "AI presentation",
+        "PowerPoint generation",
+        "AI document engine",
         "MCP",
-        "Korean PowerPoint generation",
+        "Korean PPT",
+        "ppt-master",
     ],
     openGraph: {
-        title: "edit2docs — 한 줄이면 편집 가능한 PPT·Word·Excel",
-        locale: "ko_KR",
+        title: "edit2docs — Editable PPT, Word & Excel from one line",
+        locale: "en_US",
         type: "website",
-    },
-    other: {
-        // RFC 5646 lang tag for the document; pairs with <html lang> below.
-        "Accept-Language": "ko-KR",
     },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="ko-KR">
+        <html lang="en">
             <head>
                 {/*
-                 * Pretendard via CDN. Korean-first body face per strategist.en.md §K.1.
-                 * Falls back to Apple SD Gothic Neo / Malgun Gothic / Noto Sans KR via
-                 * the Tailwind sans stack when the CDN is unreachable.
+                 * Pretendard via CDN. Renders Latin cleanly and is required for
+                 * first-class Korean (strategist.en.md §K.1). Falls back to
+                 * Apple SD Gothic Neo / Malgun Gothic / Noto Sans KR via the
+                 * Tailwind sans stack when the CDN is unreachable.
                  */}
                 <link
                     rel="stylesheet"
@@ -49,9 +48,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 />
             </head>
             <body className="min-h-screen flex flex-col">
-                <SiteHeader />
-                <div className="flex-1 flex flex-col">{children}</div>
-                <SiteFooter />
+                <LocaleProvider>
+                    <SiteHeader />
+                    <div className="flex-1 flex flex-col">{children}</div>
+                    <SiteFooter />
+                </LocaleProvider>
             </body>
         </html>
     );

@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { withBase } from "@/lib/basePath";
+import { useT } from "@/lib/i18n";
 
 export interface PreviewSlide {
     index: number;
@@ -91,6 +92,7 @@ export default function SlideCanvas({
     onReset,
     onTextEdit,
 }: SlideCanvasProps) {
+    const t = useT();
     const [zoomIdx, setZoomIdx] = useState(3); // 100%
     const [editor, setEditor] = useState<EditorState | null>(null);
     const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -175,13 +177,13 @@ export default function SlideCanvas({
                 <p className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800">
                     {filename}
                     <span className="ml-2 text-xs font-normal text-neutral-500">
-                        {slides.length}장
+                        {t.slides.count(slides.length)}
                     </span>
                 </p>
 
                 <span className="hidden items-center gap-1 text-[11px] text-neutral-400 lg:inline-flex">
                     <Pencil className="size-3" />
-                    텍스트 더블클릭으로 바로 편집
+                    {t.slides.dblClickHint}
                 </span>
 
                 <div className="flex items-center rounded-md border border-neutral-200">
@@ -189,7 +191,7 @@ export default function SlideCanvas({
                         type="button"
                         onClick={() => setZoomIdx((i) => Math.max(0, i - 1))}
                         disabled={zoomIdx === 0}
-                        aria-label="축소"
+                        aria-label={t.slides.zoomOut}
                         className="p-1.5 text-neutral-600 hover:bg-neutral-50 disabled:text-neutral-300"
                     >
                         <Minus className="size-3.5" />
@@ -198,7 +200,7 @@ export default function SlideCanvas({
                         type="button"
                         onClick={() => setZoomIdx(3)}
                         className="min-w-12 px-1 text-center text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-                        aria-label="100%로"
+                        aria-label={t.slides.zoomReset}
                     >
                         {Math.round(zoom * 100)}%
                     </button>
@@ -206,7 +208,7 @@ export default function SlideCanvas({
                         type="button"
                         onClick={() => setZoomIdx((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}
                         disabled={zoomIdx === ZOOM_STEPS.length - 1}
-                        aria-label="확대"
+                        aria-label={t.slides.zoomIn}
                         className="p-1.5 text-neutral-600 hover:bg-neutral-50 disabled:text-neutral-300"
                     >
                         <Plus className="size-3.5" />
@@ -220,14 +222,14 @@ export default function SlideCanvas({
                     className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:text-neutral-300"
                 >
                     <Undo2 className="size-3.5" />
-                    되돌리기
+                    {t.canvas.undo}
                 </button>
                 <a
                     href={withBase(`/api/assets/${assetId}/download`)}
                     className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
                 >
                     <Download className="size-3.5" />
-                    다운로드
+                    {t.canvas.download}
                 </a>
                 <button
                     type="button"
@@ -235,7 +237,7 @@ export default function SlideCanvas({
                     className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
                 >
                     <FileUp className="size-3.5" />
-                    다른 파일
+                    {t.canvas.otherFile}
                 </button>
             </div>
 
@@ -262,7 +264,7 @@ export default function SlideCanvas({
                     ))}
                     {slides.length === 0 && !loading && (
                         <p className="py-20 text-center text-sm text-neutral-500">
-                            미리보기를 불러오지 못했습니다.
+                            {t.slides.previewFailed}
                         </p>
                     )}
                 </div>
@@ -271,7 +273,7 @@ export default function SlideCanvas({
                     <div className="pointer-events-none sticky bottom-0 inset-x-0 flex justify-center pb-6">
                         <span className="inline-flex items-center gap-2 rounded-full bg-neutral-900/85 px-4 py-2 text-xs font-medium text-white shadow-lg">
                             <Loader2 className="size-3.5 animate-spin" />
-                            {busy ? "편집 반영 중…" : "미리보기 갱신 중…"}
+                            {busy ? t.canvas.applying : t.canvas.refreshing}
                         </span>
                     </div>
                 )}
@@ -283,7 +285,7 @@ export default function SlideCanvas({
                     style={{ left: editor.x, top: editor.y }}
                 >
                     <p className="mb-2 text-xs font-medium text-neutral-600">
-                        텍스트 편집 — 슬라이드 {editor.target.slide + 1}
+                        {t.slides.editorTitle(editor.target.slide + 1)}
                     </p>
                     <textarea
                         autoFocus
@@ -310,7 +312,7 @@ export default function SlideCanvas({
                             onClick={() => setEditor(null)}
                             className="rounded-md px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-100"
                         >
-                            취소 (Esc)
+                            {t.slides.cancelEsc}
                         </button>
                         <button
                             type="button"
@@ -319,7 +321,7 @@ export default function SlideCanvas({
                             className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:bg-neutral-300"
                         >
                             {editor.saving && <Loader2 className="size-3 animate-spin" />}
-                            저장 (Enter)
+                            {t.slides.saveEnter}
                         </button>
                     </div>
                 </div>

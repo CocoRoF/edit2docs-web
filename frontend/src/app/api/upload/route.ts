@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
             {
                 error: {
                     code: "BAD_REQUEST",
-                    message: "multipart form 데이터를 읽을 수 없습니다.",
-                    message_en: "Could not parse multipart form data.",
+                    message: "Could not parse multipart form data.",
+                    message_ko: "multipart form 데이터를 읽을 수 없습니다.",
                     detail: String(err),
                 },
             },
@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
             {
                 error: {
                     code: "MISSING_FILE",
-                    message: "파일이 누락되었습니다.",
-                    message_en: "No file in upload.",
+                    message: "No file in upload.",
+                    message_ko: "파일이 누락되었습니다.",
                 },
             },
             { status: 400 },

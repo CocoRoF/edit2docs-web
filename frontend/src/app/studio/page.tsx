@@ -15,22 +15,12 @@ import SlideCanvas, {
 import UploadDropzone, { type UploadedAsset } from "@/components/UploadDropzone";
 import { useJobEvents, type JobEvent } from "@/hooks/useJobEvents";
 import { withBase } from "@/lib/basePath";
+import { localeTag, useLocale, useT } from "@/lib/i18n";
 
 const DOC_MIMES =
     "application/vnd.openxmlformats-officedocument.presentationml.presentation," +
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document," +
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-
-/** Korean labels for the edit-deck pipeline stages. */
-const STAGE_LABEL: Record<string, string> = {
-    queued: "작업 대기 중…",
-    analyzing_deck: "덱 렌더링 중…",
-    planning_edits: "편집 계획 수립 중…",
-    editing_slides: "슬라이드 편집 중…",
-    applying_edits: "문서 반영 중…",
-    done: "완료",
-    failed: "실패",
-};
 
 const PANEL_WIDTH_KEY = "e2p-studio-panel-width";
 const PANEL_MIN = 320;
@@ -90,13 +80,15 @@ interface EditJobResult {
 }
 
 /**
- * "문서 같이 만들기" studio — resizable split: chat (left) / canvas (right).
+ * Co-editing studio — resizable split: chat (left) / canvas (right).
  *
  * Deck state is a revision chain of asset ids: chat turns and inline text
  * edits each produce a new revision (the engine preserves prior assets),
- * so 되돌리기 is just stepping back one id and re-rendering.
+ * so undo is just stepping back one id and re-rendering.
  */
 export default function StudioPage() {
+    const t = useT();
+    const { locale } = useLocale();
     const [deck, setDeck] = useState<DeckState | null>(null);
     const [revisions, setRevisions] = useState<string[]>([]);
     const [slides, setSlides] = useState<PreviewSlide[]>([]);
@@ -107,12 +99,35 @@ export default function StudioPage() {
     const [config, setConfig] = useState<StudioConfig>({
         anthropicKey: "",
         model: "claude-opus-4-7",
-        lang: "ko-KR",
+        lang: "en-US",
     });
     const [jobId, setJobId] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [panelWidth, setPanelWidth] = useState(400);
     const dragging = useRef(false);
+
+    // Read locale + dictionary through refs inside async callbacks, so a
+    // locale toggle never changes callback identity (which would tear down
+    // the SSE stream mid-turn via useJobEvents' effect deps).
+    const tRef = useRef(t);
+    tRef.current = t;
+    const localeRef = useRef(locale);
+    localeRef.current = locale;
+
+    // The job `lang` follows the active UI locale until the user explicitly
+    // picks a language in the settings panel.
+    const langTouched = useRef(false);
+    useEffect(() => {
+        if (!langTouched.current) {
+            setConfig((prev) => ({ ...prev, lang: localeTag(locale) }));
+        }
+    }, [locale]);
+    const handleConfigChange = useCallback((next: StudioConfig) => {
+        setConfig((prev) => {
+            if (next.lang !== prev.lang) langTouched.current = true;
+            return next;
+        });
+    }, []);
 
     // ----- resizable divider ------------------------------------------------
     useEffect(() => {
@@ -150,11 +165,14 @@ export default function StudioPage() {
         try {
             const res = await fetch(withBase("/api/preview"), {
                 method: "POST",
-                headers: { "Content-Type": "application/json", "Accept-Language": "ko-KR" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept-Language": localeTag(localeRef.current),
+                },
                 body: JSON.stringify({ pptx_asset_id: assetId }),
             });
             if (!res.ok) {
-                let msg = `미리보기 렌더링에 실패했습니다 (HTTP ${res.status}).`;
+                let msg = tRef.current.studio.previewFailed(res.status);
                 try {
                     const j = (await res.json()) as { error?: { message?: string } };
                     if (j.error?.message) msg = j.error.message;
@@ -179,7 +197,9 @@ export default function StudioPage() {
                 ...prev,
                 {
                     role: "assistant",
-                    content: `미리보기 요청 중 오류: ${err instanceof Error ? err.message : String(err)}`,
+                    content: tRef.current.studio.previewError(
+                        err instanceof Error ? err.message : String(err),
+                    ),
                     kind: "error",
                 },
             ]);
@@ -221,7 +241,7 @@ export default function StudioPage() {
         setDeck((d) => (d ? { ...d, assetId } : d));
         setMessages((m) => [
             ...m,
-            { role: "assistant", content: "이전 버전으로 되돌렸습니다." },
+            { role: "assistant", content: tRef.current.studio.undone },
         ]);
         void loadPreview(assetId);
     }, [revisions, loadPreview]);
@@ -231,13 +251,13 @@ export default function StudioPage() {
         async (finalEvent: JobEvent) => {
             const id = finalEvent.job_id;
             try {
-                const result = await pollJobResult(id);
+                const result = await pollJobResult(id, localeTag(localeRef.current));
                 if (result === null) {
                     setMessages((prev) => [
                         ...prev,
                         {
                             role: "assistant",
-                            content: "작업 결과를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+                            content: tRef.current.studio.resultFetchFailed,
                             kind: "error",
                         },
                     ]);
@@ -248,7 +268,9 @@ export default function StudioPage() {
                         ...prev,
                         {
                             role: "assistant",
-                            content: `편집에 실패했습니다: ${result.error_message ?? "알 수 없는 오류"}`,
+                            content: tRef.current.studio.editFailed(
+                                result.error_message ?? tRef.current.studio.unknownError,
+                            ),
                             kind: "error",
                         },
                     ]);
@@ -259,7 +281,7 @@ export default function StudioPage() {
                     ...prev,
                     {
                         role: "assistant",
-                        content: r.reply || "요청을 처리했습니다.",
+                        content: r.reply || tRef.current.studio.processed,
                         ops: r.changed ? r.operations : undefined,
                     },
                 ]);
@@ -276,6 +298,8 @@ export default function StudioPage() {
     const { events } = useJobEvents({ jobId, onTerminal: finishTurn });
     const lastStage = [...events].reverse().find((e) => typeof e.payload.stage === "string")
         ?.payload.stage as string | undefined;
+    const lastStageLabel =
+        (t.stages as Record<string, string>)[lastStage ?? "queued"];
 
     // Live-edit op stream (engine v0.3.0+): the op being applied right
     // now, and every applied target of the turn — located in the preview
@@ -310,8 +334,8 @@ export default function StudioPage() {
                 .map((m) => ({ role: m.role, content: m.content }));
             const label =
                 attachments.length > 0
-                    ? `${instruction}\n[첨부] ${attachments
-                          .map((a) => a.original_filename ?? "파일")
+                    ? `${instruction}\n${tRef.current.studio.attachmentPrefix} ${attachments
+                          .map((a) => a.original_filename ?? tRef.current.studio.fileFallback)
                           .join(", ")}`
                     : instruction;
             setMessages((prev) => [...prev, { role: "user", content: label }]);
@@ -322,7 +346,7 @@ export default function StudioPage() {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "Accept-Language": "ko-KR",
+                        "Accept-Language": localeTag(localeRef.current),
                         "X-Anthropic-API-Key": config.anthropicKey.trim(),
                     },
                     body: JSON.stringify({
@@ -336,7 +360,7 @@ export default function StudioPage() {
                     }),
                 });
                 if (!res.ok) {
-                    let msg = `요청에 실패했습니다 (HTTP ${res.status}).`;
+                    let msg = tRef.current.errors.requestFailed(res.status);
                     try {
                         const j = (await res.json()) as { error?: { message?: string } };
                         if (j.error?.message) msg = j.error.message;
@@ -354,7 +378,9 @@ export default function StudioPage() {
                     ...prev,
                     {
                         role: "assistant",
-                        content: `요청 중 오류: ${err instanceof Error ? err.message : String(err)}`,
+                        content: tRef.current.errors.requestError(
+                            err instanceof Error ? err.message : String(err),
+                        ),
                         kind: "error",
                     },
                 ]);
@@ -367,11 +393,14 @@ export default function StudioPage() {
     // ----- inline text edit (no LLM) ---------------------------------------
     const handleTextEdit = useCallback(
         async (target: TextEditTarget, newText: string): Promise<string | null> => {
-            if (!deck) return "덱이 없습니다.";
+            if (!deck) return tRef.current.studio.noDeck;
             try {
                 const res = await fetch(withBase("/api/text-edits"), {
                     method: "POST",
-                    headers: { "Content-Type": "application/json", "Accept-Language": "ko-KR" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept-Language": localeTag(localeRef.current),
+                    },
                     body: JSON.stringify({
                         pptx_asset_id: deck.assetId,
                         edits: [
@@ -391,9 +420,9 @@ export default function StudioPage() {
                 if (!res.ok) {
                     try {
                         const j = (await res.json()) as { error?: { message?: string } };
-                        return j.error?.message ?? `수정 실패 (HTTP ${res.status})`;
+                        return j.error?.message ?? tRef.current.studio.textEditFailed(res.status);
                     } catch {
-                        return `수정 실패 (HTTP ${res.status})`;
+                        return tRef.current.studio.textEditFailed(res.status);
                     }
                 }
                 const body = (await res.json()) as {
@@ -405,14 +434,16 @@ export default function StudioPage() {
                     const status = body.results[0]?.status;
                     if (status === "stale") {
                         void loadPreview(deck.assetId);
-                        return "슬라이드가 이미 변경되었습니다. 미리보기를 갱신했으니 다시 시도하세요.";
+                        return tRef.current.studio.staleSlide;
                     }
-                    return body.results[0]?.message ?? "수정을 적용하지 못했습니다.";
+                    return body.results[0]?.message ?? tRef.current.studio.notApplied;
                 }
                 adoptRevision(body.pptx_asset_id);
                 return null;
             } catch (err) {
-                return `수정 중 오류: ${err instanceof Error ? err.message : String(err)}`;
+                return tRef.current.studio.textEditError(
+                    err instanceof Error ? err.message : String(err),
+                );
             }
         },
         [deck, adoptRevision, loadPreview],
@@ -437,7 +468,7 @@ export default function StudioPage() {
             >
                 <div className="flex items-center gap-2 border-b border-neutral-200 px-4 py-3">
                     <MessageSquareText className="size-4 text-primary-600" />
-                    <h1 className="text-sm font-semibold text-neutral-900">문서 같이 만들기</h1>
+                    <h1 className="text-sm font-semibold text-neutral-900">{t.studio.title}</h1>
                     <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700">
                         beta
                     </span>
@@ -445,10 +476,16 @@ export default function StudioPage() {
                 <ChatPanel
                     messages={messages}
                     config={config}
-                    onConfigChange={setConfig}
+                    onConfigChange={handleConfigChange}
                     onSend={send}
                     busy={busy}
-                    stageLabel={busy ? STAGE_LABEL[lastStage ?? "queued"] ?? "작업 중…" : null}
+                    stageLabel={
+                        busy
+                            ? lastStageLabel
+                                ? `${lastStageLabel}…`
+                                : t.studio.working
+                            : null
+                    }
                     disabled={deck === null}
                 />
             </aside>
@@ -465,18 +502,15 @@ export default function StudioPage() {
                     <div className="flex h-full items-center justify-center bg-neutral-100 px-6">
                         <div className="w-full max-w-lg space-y-4 text-center">
                             <h2 className="text-xl font-bold text-neutral-900">
-                                문서를 올리고 채팅으로 편집하세요
+                                {t.studio.emptyTitle}
                             </h2>
                             <p className="text-sm text-neutral-600">
-                                PPT·Word·Excel을 업로드하면 미리보기가 나타나고,
-                                채팅으로 수정·추가·삭제를 요청할 수 있습니다. PPT는
-                                텍스트 더블클릭 즉시 수정도 지원합니다. 편집마다 새
-                                버전이 만들어져 언제든 되돌리고 다운로드할 수 있습니다.
+                                {t.studio.emptyBody}
                             </p>
                             <UploadDropzone
                                 inputId="studio-upload"
                                 accept={DOC_MIMES}
-                                formatsLabel="PPTX · DOCX · XLSX (최대 200 MB)"
+                                formatsLabel={t.studio.uploadFormats}
                                 onUploaded={handleUploaded}
                             />
                         </div>
@@ -520,10 +554,13 @@ interface JobRow {
 }
 
 /** The `done` SSE event can beat the job row's final commit; poll briefly. */
-async function pollJobResult(jobId: string): Promise<JobRow | null> {
+async function pollJobResult(
+    jobId: string,
+    acceptLanguage: string,
+): Promise<JobRow | null> {
     for (let attempt = 0; attempt < 10; attempt++) {
         const res = await fetch(withBase(`/api/jobs/${jobId}`), {
-            headers: { "Accept-Language": "ko-KR" },
+            headers: { "Accept-Language": acceptLanguage },
         });
         if (res.ok) {
             const job = (await res.json()) as JobRow;

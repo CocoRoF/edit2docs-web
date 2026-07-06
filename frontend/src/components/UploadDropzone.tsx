@@ -4,6 +4,7 @@ import { Upload, FileText, X } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { withBase } from "@/lib/basePath";
+import { localeTag, useLocale, useT } from "@/lib/i18n";
 
 /** Asset metadata as returned by the engine's POST /v1/assets. */
 export type UploadedAsset = {
@@ -51,10 +52,12 @@ export default function UploadDropzone({
     onUploaded,
     onCleared,
     accept = ACCEPT_LIST,
-    formatsLabel = "PDF · DOCX · PPTX · XLSX · HTML · EPUB (최대 200 MB)",
+    formatsLabel,
     inputId = "upload-file",
     compact = false,
 }: UploadDropzoneProps) {
+    const t = useT();
+    const { locale } = useLocale();
     const [status, setStatus] = useState<UploadStatus>({ kind: "idle" });
     const [isDragging, setIsDragging] = useState(false);
 
@@ -63,7 +66,9 @@ export default function UploadDropzone({
             if (file.size > MAX_BYTES) {
                 setStatus({
                     kind: "error",
-                    message: `파일이 너무 큽니다 (${(file.size / 1024 / 1024).toFixed(1)} MB > 200 MB).`,
+                    message: t.upload.tooLarge(
+                        (file.size / 1024 / 1024).toFixed(1),
+                    ),
                 });
                 return;
             }
@@ -79,7 +84,7 @@ export default function UploadDropzone({
                     method: "POST",
                     body: form,
                     headers: {
-                        "Accept-Language": "ko-KR",
+                        "Accept-Language": localeTag(locale),
                     },
                 });
 
@@ -95,9 +100,7 @@ export default function UploadDropzone({
                     }
                     setStatus({
                         kind: "error",
-                        message:
-                            detail ||
-                            `업로드에 실패했습니다 (HTTP ${res.status}).`,
+                        message: detail || t.upload.failed(res.status),
                     });
                     return;
                 }
@@ -108,13 +111,13 @@ export default function UploadDropzone({
             } catch (err) {
                 setStatus({
                     kind: "error",
-                    message: `업로드 중 오류가 발생했습니다: ${
-                        err instanceof Error ? err.message : String(err)
-                    }`,
+                    message: t.upload.error(
+                        err instanceof Error ? err.message : String(err),
+                    ),
                 });
             }
         },
-        [onUploaded],
+        [onUploaded, t, locale],
     );
 
     const onDrop = useCallback(
@@ -161,11 +164,11 @@ export default function UploadDropzone({
                     />
                     <p className="mt-4 font-medium text-neutral-700">
                         {status.kind === "uploading"
-                            ? `업로드 중… ${status.name}`
-                            : "파일을 드래그하거나 클릭하여 선택"}
+                            ? t.upload.uploading(status.name)
+                            : t.upload.dropOrClick}
                     </p>
                     <p className="mt-1 text-sm text-neutral-500">
-                        {formatsLabel}
+                        {formatsLabel ?? t.upload.defaultFormats}
                     </p>
                     <input
                         id={inputId}
@@ -188,7 +191,7 @@ export default function UploadDropzone({
                     <FileText className="size-5 text-primary-600 mt-0.5" />
                     <div className="flex-1 min-w-0">
                         <p className="font-medium text-neutral-900 truncate">
-                            {status.asset.original_filename ?? "(이름 없음)"}
+                            {status.asset.original_filename ?? t.upload.unnamed}
                         </p>
                         <p className="mt-0.5 text-xs text-neutral-500">
                             {(status.asset.size / 1024 / 1024).toFixed(2)} MB ·{" "}
@@ -198,7 +201,7 @@ export default function UploadDropzone({
                             </code>
                         </p>
                         <p className="mt-1 text-xs text-neutral-400">
-                            저장 키 (ASCII):{" "}
+                            {t.upload.storageKey}{" "}
                             <code className="font-mono">
                                 {status.asset.storage_key}
                             </code>
@@ -208,7 +211,7 @@ export default function UploadDropzone({
                         type="button"
                         onClick={reset}
                         className="rounded-md p-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
-                        aria-label="다른 파일 선택"
+                        aria-label={t.upload.chooseAnother}
                     >
                         <X className="size-4" />
                     </button>

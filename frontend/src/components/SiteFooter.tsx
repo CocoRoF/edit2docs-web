@@ -1,7 +1,10 @@
+import EngineStatusNote from "./EngineStatusNote";
+
 /**
  * Site-wide footer. Shows engine build info pulled at request time from
  * the engine's /health endpoint via /edit2docs-api proxy. Server component
- * so the request happens at render time, not in the browser.
+ * so the request happens at render time, not in the browser; only the
+ * localized failure note is a client component (it needs the locale).
  */
 async function fetchEngineHealth(): Promise<
     | { commit: string; built_at: string; ok: true }
@@ -60,7 +63,7 @@ export default async function SiteFooter() {
                         engine commit {health.commit.slice(0, 8)} · built {health.built_at}
                     </p>
                 ) : (
-                    <p className="text-neutral-400">engine 정보 없음 ({health.reason})</p>
+                    <EngineStatusNote reason={health.reason} />
                 )}
             </div>
         </footer>
