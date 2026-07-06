@@ -3,21 +3,7 @@
 import { CheckCircle2, Circle, Loader2, AlertCircle } from "lucide-react";
 
 import type { JobEvent } from "@/hooks/useJobEvents";
-
-/** Korean labels for every stage the engine emits. */
-const STAGE_LABEL: Record<string, string> = {
-    queued: "작업 대기",
-    converting: "소스 변환 중",
-    analyzing_template: "템플릿 PPTX 분석 중",
-    strategizing: "디자인 전략 수립 중",
-    acquiring_images: "이미지 확보 중",
-    executing_pages: "페이지 생성 중",
-    checking_quality: "품질 검사 중",
-    narrating: "내레이션 합성 중",
-    exporting: "문서 빌드 중",
-    done: "완료",
-    failed: "실패",
-};
+import { useT } from "@/lib/i18n";
 
 const ORDER: string[] = [
     "queued",
@@ -43,6 +29,12 @@ export default function ProgressTimeline({
     connected,
     error,
 }: ProgressTimelineProps) {
+    const t = useT();
+    // Stage labels live in the shared dictionary (t.stages) — the engine can
+    // emit stages we don't know yet, so fall back to the raw key.
+    const stageLabel = (stage: string) =>
+        (t.stages as Record<string, string>)[stage] ?? stage;
+
     // Track the most recent occurrence of each stage so we can label one as
     // "active" and the others as "done".
     const seenStages = new Set<string>();
@@ -61,15 +53,15 @@ export default function ProgressTimeline({
     return (
         <div className="rounded-xl border border-neutral-200 bg-white p-5">
             <header className="mb-4 flex items-center justify-between">
-                <h2 className="font-semibold text-neutral-900">진행 상황</h2>
+                <h2 className="font-semibold text-neutral-900">{t.timeline.title}</h2>
                 <span className="text-xs text-neutral-500">
                     {error
-                        ? "연결 끊김"
+                        ? t.timeline.disconnected
                         : connected
-                          ? "라이브"
+                          ? t.timeline.live
                           : isFailed
-                            ? "종료됨"
-                            : "대기 중"}
+                            ? t.timeline.closed
+                            : t.timeline.waiting}
                 </span>
             </header>
 
@@ -106,7 +98,7 @@ export default function ProgressTimeline({
                                           : "text-neutral-400"
                                 }
                             >
-                                {STAGE_LABEL[stage] ?? stage}
+                                {stageLabel(stage)}
                             </span>
                         </li>
                     );
@@ -115,7 +107,7 @@ export default function ProgressTimeline({
                 {isFailed && (
                     <li className="flex items-center gap-3 text-sm text-red-600">
                         <AlertCircle className="size-4" />
-                        <span className="font-medium">{STAGE_LABEL.failed}</span>
+                        <span className="font-medium">{t.stages.failed}</span>
                     </li>
                 )}
             </ol>

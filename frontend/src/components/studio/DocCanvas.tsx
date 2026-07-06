@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { Download, FileUp, Loader2, Undo2 } from "lucide-react";
 
 import { withBase } from "@/lib/basePath";
+import { useT } from "@/lib/i18n";
 
 interface DocCanvasProps {
     format: "docx" | "xlsx";
@@ -46,6 +47,7 @@ export default function DocCanvas({
     liveTarget = null,
     flashTargets = [],
 }: DocCanvasProps) {
+    const t = useT();
     const previewRef = useRef<HTMLDivElement>(null);
     const flashRef = useRef<string[]>(flashTargets);
     flashRef.current = flashTargets;
@@ -111,14 +113,14 @@ export default function DocCanvas({
                     className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:text-neutral-300"
                 >
                     <Undo2 className="size-3.5" />
-                    되돌리기
+                    {t.canvas.undo}
                 </button>
                 <a
                     href={withBase(`/api/assets/${assetId}/download`)}
                     className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
                 >
                     <Download className="size-3.5" />
-                    다운로드
+                    {t.canvas.download}
                 </a>
                 <button
                     type="button"
@@ -126,7 +128,7 @@ export default function DocCanvas({
                     className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
                 >
                     <FileUp className="size-3.5" />
-                    다른 파일
+                    {t.canvas.otherFile}
                 </button>
             </div>
 
@@ -143,7 +145,7 @@ export default function DocCanvas({
                     <div className="pointer-events-none sticky bottom-0 inset-x-0 flex justify-center pb-6">
                         <span className="inline-flex items-center gap-2 rounded-full bg-neutral-900/85 px-4 py-2 text-xs font-medium text-white shadow-lg">
                             <Loader2 className="size-3.5 animate-spin" />
-                            {busy ? "편집 반영 중…" : "미리보기 갱신 중…"}
+                            {busy ? t.canvas.applying : t.canvas.refreshing}
                         </span>
                     </div>
                 )}

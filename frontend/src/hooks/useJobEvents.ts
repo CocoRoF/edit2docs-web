@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { withBase } from "@/lib/basePath";
+import { useT } from "@/lib/i18n";
 
 /** One JobEvent envelope from the engine's `/v1/jobs/{id}/events` stream. */
 export interface JobEvent {
@@ -43,10 +44,15 @@ export function useJobEvents({
     jobId,
     onTerminal,
 }: UseJobEventsOptions): UseJobEventsResult {
+    const t = useT();
     const [events, setEvents] = useState<JobEvent[]>([]);
     const [connected, setConnected] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const sourceRef = useRef<EventSource | null>(null);
+    // Read the dictionary through a ref so a locale toggle never tears down
+    // (and re-opens) the SSE connection mid-job.
+    const tRef = useRef(t);
+    tRef.current = t;
 
     useEffect(() => {
         if (!jobId) return;
@@ -98,7 +104,7 @@ export function useJobEvents({
             // EventSource auto-reconnects for transient errors; we only
             // surface a banner so the UI can show a "connecting…" state.
             setConnected(false);
-            setError("스트림 연결이 끊겼습니다. 재연결 중…");
+            setError(tRef.current.events.streamDisconnected);
         };
 
         return () => {
