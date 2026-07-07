@@ -77,6 +77,7 @@ surface, screens, Unicode-filename round-trip, and BYOK handling.
 
 ## Acknowledgments
 
-Engine: [edit2docs](https://github.com/CocoRoF/edit2docs) (PPTX core built on
-[ppt-master](https://github.com/hugohe3/ppt-master), MIT — synced through
-v3.1). Pattern: [Edit2me](https://github.com/CocoRoF/Edit2me).
+Engine: [edit2docs](https://github.com/CocoRoF/edit2docs) (Apache-2.0; its
+PPTX core is derived from [ppt-master](https://github.com/hugohe3/ppt-master),
+MIT — synced through v3.1). Pattern:
+[Edit2me](https://github.com/CocoRoF/Edit2me).
