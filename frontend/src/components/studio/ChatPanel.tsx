@@ -90,14 +90,25 @@ export default function ChatPanel({
         "idle" | "loading" | "live" | "fallback"
     >("idle");
 
+    // The settings panel's open state is USER-controlled (default open). It
+    // must NOT be tied to whether a key is present — otherwise typing the
+    // first character collapses the panel out from under the user.
+    const [settingsOpen, setSettingsOpen] = useState(true);
+    // Only reveal the model/language controls — and fetch models — once the
+    // key looks fully entered: long enough to be a real key, or the field
+    // lost focus with content in it. Avoids reacting on every keystroke and
+    // hitting the Models API with a half-typed key.
+    const [keyCommitted, setKeyCommitted] = useState(false);
+
     // Keep the latest config reachable from the debounced fetch without
     // re-triggering it on every model/lang change.
     const configRef = useRef(config);
     configRef.current = config;
     const apiKey = config.anthropicKey.trim();
+    const keyReady = apiKey.length > 0 && (keyCommitted || apiKey.length >= 20);
 
     useEffect(() => {
-        if (!apiKey) {
+        if (!keyReady) {
             setModelSource("idle");
             setModels(FALLBACK_MODELS);
             return;
@@ -135,9 +146,9 @@ export default function ChatPanel({
             cancelled = true;
             clearTimeout(timer);
         };
-        // Re-fetch only when the key changes.
+        // Re-fetch only when the (ready) key changes.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [apiKey]);
+    }, [keyReady, apiKey]);
 
     useEffect(() => {
         scrollRef.current?.scrollTo({
@@ -235,7 +246,10 @@ export default function ChatPanel({
         <div className="flex h-full flex-col">
             <details
                 className="border-b border-neutral-200 px-4 py-3"
-                open={keyMissing}
+                open={settingsOpen}
+                onToggle={(e) =>
+                    setSettingsOpen((e.currentTarget as HTMLDetailsElement).open)
+                }
             >
                 <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-neutral-800 select-none">
                     <Settings2 className="size-4" />
@@ -255,9 +269,15 @@ export default function ChatPanel({
                         <input
                             type="password"
                             value={config.anthropicKey}
-                            onChange={(e) =>
-                                onConfigChange({ ...config, anthropicKey: e.target.value })
-                            }
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                if (v.trim().length === 0) setKeyCommitted(false);
+                                onConfigChange({ ...config, anthropicKey: v });
+                            }}
+                            onBlur={() => {
+                                if (config.anthropicKey.trim().length > 0)
+                                    setKeyCommitted(true);
+                            }}
                             autoComplete="off"
                             placeholder="sk-ant-…"
                             className="w-full rounded-md border border-neutral-300 px-2.5 py-1.5 font-mono text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -266,7 +286,7 @@ export default function ChatPanel({
                             {t.chat.keyHint}
                         </span>
                     </label>
-                    {apiKey ? (
+                    {keyReady ? (
                         <div className="grid grid-cols-2 gap-3">
                             <label className="block space-y-1">
                                 <span className="flex items-center gap-1.5 text-xs font-medium text-neutral-700">
