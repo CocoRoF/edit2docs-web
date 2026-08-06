@@ -143,3 +143,37 @@
     0% { background: #dbeafe; outline: 2px solid #60a5fa; outline-offset: 2px; }
     100% { background: transparent; outline: 2px solid transparent; }
 }
+
+/* Live tool-activity log (studio): a rolling, ephemeral feed of the
+ * engine's per-operation events while a turn runs. New lines slide up in
+ * from the bottom; older lines ease to a fainter opacity and dissolve under
+ * the top gradient mask — "스르륵" sliding away. See ActivityLog.tsx. */
+.e2d-activitylog {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-left: 0.5rem;
+    max-width: 100%;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 1.6rem);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 1.6rem);
+}
+.e2d-activityrow {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    line-height: 1.1rem;
+    color: #737373;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: opacity 320ms ease, transform 320ms ease;
+    animation: e2d-activity-in 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes e2d-activity-in {
+    from { opacity: 0; transform: translateY(9px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .e2d-activityrow { animation: none; transition: none; }
+    .e2d-activitylog { -webkit-mask-image: none; mask-image: none; }
+}

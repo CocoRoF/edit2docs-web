@@ -486,6 +486,7 @@ export default function StudioPage() {
                                 : t.studio.working
                             : null
                     }
+                    events={events}
                     disabled={deck === null}
                 />
             </aside>

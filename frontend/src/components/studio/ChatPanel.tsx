@@ -15,6 +15,8 @@ import { useCallback, useEffect, useRef, useState, type DragEvent } from "react"
 import { withBase } from "@/lib/basePath";
 import { localeTag, useLocale, useT } from "@/lib/i18n";
 import type { UploadedAsset } from "@/components/UploadDropzone";
+import type { JobEvent } from "@/hooks/useJobEvents";
+import ActivityLog from "@/components/studio/ActivityLog";
 
 /** One rendered chat bubble. */
 export interface ChatMessage {
@@ -41,6 +43,8 @@ interface ChatPanelProps {
     busy: boolean;
     /** Current stage label while busy (from the SSE stream). */
     stageLabel: string | null;
+    /** Raw job events for the running turn — drives the live activity log. */
+    events?: JobEvent[];
     /** Chat is enabled only once a deck is loaded. */
     disabled: boolean;
 }
@@ -64,6 +68,7 @@ export default function ChatPanel({
     onSend,
     busy,
     stageLabel,
+    events = [],
     disabled,
 }: ChatPanelProps) {
     const t = useT();
@@ -424,11 +429,12 @@ export default function ChatPanel({
                 ))}
 
                 {busy && (
-                    <div className="flex justify-start">
+                    <div className="flex flex-col items-start gap-1.5">
                         <div className="inline-flex items-center gap-2 rounded-2xl bg-neutral-100 px-3.5 py-2.5 text-sm text-neutral-600">
                             <Loader2 className="size-4 animate-spin text-primary-600" />
                             {stageLabel ?? t.studio.working}
                         </div>
+                        <ActivityLog events={events} active={busy} />
                     </div>
                 )}
             </div>
