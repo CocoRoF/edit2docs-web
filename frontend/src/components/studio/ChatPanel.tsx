@@ -77,10 +77,67 @@ export default function ChatPanel({
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const scrollRef = useRef<HTMLDivElement | null>(null);
 
-    const models = [
+    // Model list is fetched live from the engine once an API key is entered
+    // (the engine proxies Anthropic's Models API with that key). Until then,
+    // and if the fetch fails, a small hardcoded fallback is shown.
+    const FALLBACK_MODELS = [
         { value: "claude-opus-4-7", label: t.chat.modelOpus },
         { value: "claude-sonnet-4-6", label: t.chat.modelSonnet },
     ];
+    const [models, setModels] =
+        useState<Array<{ value: string; label: string }>>(FALLBACK_MODELS);
+    const [modelSource, setModelSource] = useState<
+        "idle" | "loading" | "live" | "fallback"
+    >("idle");
+
+    // Keep the latest config reachable from the debounced fetch without
+    // re-triggering it on every model/lang change.
+    const configRef = useRef(config);
+    configRef.current = config;
+    const apiKey = config.anthropicKey.trim();
+
+    useEffect(() => {
+        if (!apiKey) {
+            setModelSource("idle");
+            setModels(FALLBACK_MODELS);
+            return;
+        }
+        let cancelled = false;
+        setModelSource("loading");
+        const timer = setTimeout(async () => {
+            try {
+                const res = await fetch(withBase("/api/models"), {
+                    headers: { "X-Anthropic-API-Key": apiKey },
+                });
+                const data = await res.json();
+                if (cancelled) return;
+                const opts: Array<{ value: string; label: string }> = (
+                    data.models ?? []
+                ).map((m: { id: string; display_name?: string }) => ({
+                    value: m.id,
+                    label: m.display_name || m.id,
+                }));
+                if (opts.length) {
+                    setModels(opts);
+                    setModelSource(data.source === "live" ? "live" : "fallback");
+                    const cfg = configRef.current;
+                    if (!opts.some((o) => o.value === cfg.model) && data.default) {
+                        onConfigChange({ ...cfg, model: data.default });
+                    }
+                } else {
+                    setModelSource("fallback");
+                }
+            } catch {
+                if (!cancelled) setModelSource("fallback");
+            }
+        }, 500);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+        // Re-fetch only when the key changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [apiKey]);
 
     useEffect(() => {
         scrollRef.current?.scrollTo({
@@ -209,43 +266,64 @@ export default function ChatPanel({
                             {t.chat.keyHint}
                         </span>
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
-                        <label className="block space-y-1">
-                            <span className="text-xs font-medium text-neutral-700">{t.chat.modelLabel}</span>
-                            <select
-                                value={config.model}
-                                onChange={(e) =>
-                                    onConfigChange({ ...config, model: e.target.value })
-                                }
-                                className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs"
-                            >
-                                {models.map((m) => (
-                                    <option key={m.value} value={m.value}>
-                                        {m.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <label className="block space-y-1">
-                            <span className="text-xs font-medium text-neutral-700">{t.chat.langLabel}</span>
-                            <select
-                                value={config.lang}
-                                onChange={(e) =>
-                                    onConfigChange({
-                                        ...config,
-                                        lang: e.target.value as StudioConfig["lang"],
-                                    })
-                                }
-                                className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs"
-                            >
-                                {/* Locale-native labels by design. */}
-                                <option value="en-US">English</option>
-                                <option value="ko-KR">한국어</option>
-                                <option value="zh-CN">简体中文</option>
-                                <option value="ja-JP">日本語</option>
-                            </select>
-                        </label>
-                    </div>
+                    {apiKey ? (
+                        <div className="grid grid-cols-2 gap-3">
+                            <label className="block space-y-1">
+                                <span className="flex items-center gap-1.5 text-xs font-medium text-neutral-700">
+                                    {t.chat.modelLabel}
+                                    {modelSource === "loading" && (
+                                        <Loader2 className="size-3 animate-spin text-neutral-400" />
+                                    )}
+                                    {modelSource === "live" && (
+                                        <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                                            {t.chat.modelLive}
+                                        </span>
+                                    )}
+                                    {modelSource === "fallback" && (
+                                        <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
+                                            {t.chat.modelFallback}
+                                        </span>
+                                    )}
+                                </span>
+                                <select
+                                    value={config.model}
+                                    onChange={(e) =>
+                                        onConfigChange({ ...config, model: e.target.value })
+                                    }
+                                    className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs"
+                                >
+                                    {models.map((m) => (
+                                        <option key={m.value} value={m.value}>
+                                            {m.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label className="block space-y-1">
+                                <span className="text-xs font-medium text-neutral-700">{t.chat.langLabel}</span>
+                                <select
+                                    value={config.lang}
+                                    onChange={(e) =>
+                                        onConfigChange({
+                                            ...config,
+                                            lang: e.target.value as StudioConfig["lang"],
+                                        })
+                                    }
+                                    className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs"
+                                >
+                                    {/* Locale-native labels by design. */}
+                                    <option value="en-US">English</option>
+                                    <option value="ko-KR">한국어</option>
+                                    <option value="zh-CN">简体中文</option>
+                                    <option value="ja-JP">日本語</option>
+                                </select>
+                            </label>
+                        </div>
+                    ) : (
+                        <p className="rounded-md bg-neutral-50 px-3 py-2 text-[11px] text-neutral-500">
+                            {t.chat.settingsNeedKey}
+                        </p>
+                    )}
                 </div>
             </details>
 
