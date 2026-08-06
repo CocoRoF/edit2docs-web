@@ -44,6 +44,10 @@ interface SlideCanvasProps {
     onReset: () => void;
     /** Commit an inline text edit; resolves to an error message or null. */
     onTextEdit: (target: TextEditTarget, newText: string) => Promise<string | null>;
+    /** CSS selector of the object the engine is editing right now (highlight). */
+    liveTarget?: string | null;
+    /** Selectors of every object edited this turn (brief flash on each). */
+    flashTargets?: string[];
 }
 
 const ZOOM_STEPS = [0.5, 0.65, 0.8, 1, 1.25, 1.5, 2];
@@ -91,6 +95,8 @@ export default function SlideCanvas({
     onUndo,
     onReset,
     onTextEdit,
+    liveTarget = null,
+    flashTargets = [],
 }: SlideCanvasProps) {
     const t = useT();
     const [zoomIdx, setZoomIdx] = useState(3); // 100%
@@ -102,6 +108,38 @@ export default function SlideCanvas({
         () => slides.map((s, i) => namespaceSvgIds(s.svg, `s${i}`)),
         [slides],
     );
+
+    // Highlight the object the engine is editing (live outline) and briefly
+    // flash every object touched this turn — located via the preview SVG's
+    // data-e2p-* addresses (see opTargetSelector).
+    useEffect(() => {
+        const root = scrollRef.current;
+        if (!root) return;
+        root.querySelectorAll(".e2p-live").forEach((el) => el.classList.remove("e2p-live"));
+        if (liveTarget) {
+            try {
+                root.querySelectorAll(liveTarget).forEach((el) => el.classList.add("e2p-live"));
+            } catch {
+                /* malformed selector — ignore */
+            }
+        }
+    }, [liveTarget, namespacedSvgs]);
+
+    useEffect(() => {
+        const root = scrollRef.current;
+        if (!root || flashTargets.length === 0) return;
+        for (const sel of flashTargets) {
+            try {
+                root.querySelectorAll(sel).forEach((el) => {
+                    el.classList.remove("e2p-flash");
+                    void (el as HTMLElement).getBoundingClientRect(); // reflow to restart anim
+                    el.classList.add("e2p-flash");
+                });
+            } catch {
+                /* ignore malformed selector */
+            }
+        }
+    }, [flashTargets, namespacedSvgs]);
 
     // Close the editor when the deck revision changes under it.
     useEffect(() => {
@@ -256,6 +294,7 @@ export default function SlideCanvas({
                                 {i + 1} / {slides.length}
                             </figcaption>
                             <div
+                                data-slide={i + 1}
                                 className="slide-svg overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm"
                                 onDoubleClick={(e) => handleDoubleClick(e, i)}
                                 dangerouslySetInnerHTML={{ __html: namespacedSvgs[i] }}
