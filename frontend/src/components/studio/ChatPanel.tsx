@@ -370,7 +370,10 @@ export default function ChatPanel({
                 </div>
             </details>
 
-            <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+            <div
+                ref={scrollRef}
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
+            >
                 {messages.length === 0 && !busy && (
                     <div className="space-y-2 rounded-lg bg-neutral-50 px-4 py-4 text-sm text-neutral-600">
                         <p className="font-medium text-neutral-800">{t.chat.examplesTitle}</p>
@@ -429,13 +432,11 @@ export default function ChatPanel({
                 ))}
 
                 {busy && (
-                    <div className="flex flex-col items-start gap-1.5">
-                        <div className="inline-flex items-center gap-2 rounded-2xl bg-neutral-100 px-3.5 py-2.5 text-sm text-neutral-600">
-                            <Loader2 className="size-4 animate-spin text-primary-600" />
-                            {stageLabel ?? t.studio.working}
-                        </div>
-                        <ActivityLog events={events} active={busy} />
-                    </div>
+                    <ActivityLog
+                        events={events}
+                        active={busy}
+                        stageLabel={stageLabel ?? t.studio.working}
+                    />
                 )}
             </div>
 

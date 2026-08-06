@@ -24,23 +24,26 @@ interface OpVar {
 }
 
 /**
- * A live, ephemeral feed of the engine's *per-operation* tool activity while a
- * turn runs — one line per slide/paragraph/cell the editor touches, using the
- * engine's already-localized `op.label`. A new line slides up from the bottom;
- * the ones above ease to a fainter opacity and dissolve under the container's
- * top gradient mask, so the log reads as a smooth rolling ticker.
+ * The single live-progress element while a turn runs — there is no separate
+ * "busy" bubble; this is it. It shows the engine's *per-operation* tool
+ * activity (one line per slide/paragraph/cell the editor touches, using the
+ * already-localized `op.label`) as a smooth rolling ticker: a new line slides
+ * up from the bottom, the ones above ease fainter and dissolve under the top
+ * gradient mask. When a slide is regenerated after a render error, the retry
+ * shows explicitly.
  *
- * It deliberately shows ONLY op-level events, not the coarse stage labels —
- * the busy bubble above already carries the current stage, so surfacing stages
- * here too would just duplicate it. When a slide is regenerated after a render
- * error, the retry is shown explicitly so the self-correction is visible.
+ * Before any per-op events arrive (planning) or after they finish (applying),
+ * there are no op lines, so it falls back to a single line carrying the current
+ * coarse stage — never both at once, so nothing is duplicated.
  */
 export default function ActivityLog({
     events,
     active,
+    stageLabel,
 }: {
     events: JobEvent[];
     active: boolean;
+    stageLabel?: string;
 }) {
     const t = useT();
 
@@ -64,9 +67,18 @@ export default function ActivityLog({
         return out;
     }, [events, t]);
 
-    // Only the most recent WINDOW lines are mounted; the rest have rolled off.
-    const visible = lines.slice(-WINDOW);
-    if (!active || visible.length === 0) return null;
+    if (!active) return null;
+
+    // Op feed when the editor is touching slides; otherwise a single line for
+    // the current coarse stage (planning / applying). Exactly one of the two —
+    // so the running state and the history are never shown side by side.
+    const visible: LogLine[] =
+        lines.length > 0
+            ? lines.slice(-WINDOW)
+            : stageLabel
+              ? [{ id: "stage", text: stageLabel, state: "run" }]
+              : [];
+    if (visible.length === 0) return null;
 
     return (
         <div className="e2d-activitylog" aria-live="polite">
