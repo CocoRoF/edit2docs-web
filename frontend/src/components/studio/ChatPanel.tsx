@@ -289,7 +289,7 @@ export default function ChatPanel({
                     {keyReady ? (
                         <div className="grid grid-cols-2 gap-3">
                             <label className="block space-y-1">
-                                <span className="flex items-center gap-1.5 text-xs font-medium text-neutral-700">
+                                <span className="flex min-h-[1.25rem] items-center gap-1.5 text-xs font-medium text-neutral-700">
                                     {t.chat.modelLabel}
                                     {modelSource === "loading" && (
                                         <Loader2 className="size-3 animate-spin text-neutral-400" />
@@ -320,7 +320,7 @@ export default function ChatPanel({
                                 </select>
                             </label>
                             <label className="block space-y-1">
-                                <span className="text-xs font-medium text-neutral-700">{t.chat.langLabel}</span>
+                                <span className="flex min-h-[1.25rem] items-center text-xs font-medium text-neutral-700">{t.chat.langLabel}</span>
                                 <select
                                     value={config.lang}
                                     onChange={(e) =>
