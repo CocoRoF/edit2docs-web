@@ -99,6 +99,9 @@ export default function ChatPanel({
     // lost focus with content in it. Avoids reacting on every keystroke and
     // hitting the Models API with a half-typed key.
     const [keyCommitted, setKeyCommitted] = useState(false);
+    // The key field starts read-only so browsers can't autofill a saved
+    // password into it on load; the first focus unlocks it.
+    const [keyLocked, setKeyLocked] = useState(true);
 
     // Keep the latest config reachable from the debounced fetch without
     // re-triggering it on every model/lang change.
@@ -274,11 +277,26 @@ export default function ChatPanel({
                                 if (v.trim().length === 0) setKeyCommitted(false);
                                 onConfigChange({ ...config, anthropicKey: v });
                             }}
+                            onFocus={() => setKeyLocked(false)}
                             onBlur={() => {
                                 if (config.anthropicKey.trim().length > 0)
                                     setKeyCommitted(true);
                             }}
-                            autoComplete="off"
+                            // Stop browsers / password managers from injecting a
+                            // SAVED password into this BYOK key field:
+                            //  - "new-password" makes Chrome not offer saved creds;
+                            //  - a non-credential name/id breaks login heuristics;
+                            //  - data-*-ignore opts out of 1Password/LastPass/Bitwarden;
+                            //  - readOnly until focus blocks on-load autofill.
+                            readOnly={keyLocked}
+                            autoComplete="new-password"
+                            name="edit2docs-byok-key"
+                            id="edit2docs-byok-key"
+                            data-1p-ignore="true"
+                            data-lpignore="true"
+                            data-bwignore="true"
+                            data-form-type="other"
+                            spellCheck={false}
                             placeholder="sk-ant-…"
                             className="w-full rounded-md border border-neutral-300 px-2.5 py-1.5 font-mono text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         />
