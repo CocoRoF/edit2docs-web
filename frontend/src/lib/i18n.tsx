@@ -286,6 +286,7 @@ const en = {
         notApplied: "The edit could not be applied.",
         textEditError: (message: string) => `Error while editing: ${message}`,
         working: "Working…",
+        retry: "retrying",
         emptyTitle: "Upload a document and edit it in chat",
         emptyBody:
             "Upload a PPT, Word, or Excel file to get a preview, then ask for edits, additions, and deletions in chat. PPTs also support instant editing by double-clicking text. Every edit creates a new version, so you can undo and download at any time.",
@@ -623,6 +624,7 @@ const ko: Dict = {
         notApplied: "수정을 적용하지 못했습니다.",
         textEditError: (message: string) => `수정 중 오류: ${message}`,
         working: "작업 중…",
+        retry: "다시 시도",
         emptyTitle: "문서를 올리고 채팅으로 편집하세요",
         emptyBody:
             "PPT·Word·Excel을 업로드하면 미리보기가 나타나고, 채팅으로 수정·추가·삭제를 요청할 수 있습니다. PPT는 텍스트 더블클릭 즉시 수정도 지원합니다. 편집마다 새 버전이 만들어져 언제든 되돌리고 다운로드할 수 있습니다.",
