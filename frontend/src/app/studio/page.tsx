@@ -41,6 +41,23 @@ interface EditOp {
  */
 function opTargetSelector(target: Record<string, unknown> | undefined): string | null {
     if (!target) return null;
+    // PPTX surgical ops carry a 1-based `slide` and address real objects by
+    // their cNvPr id via the preview SVG's data-e2p-* hooks (scoped per slide).
+    if (target.slide !== undefined) {
+        const slide = Number(target.slide);
+        if (!Number.isInteger(slide)) return null;
+        const scope = `[data-slide="${slide}"]`;
+        switch (target.kind) {
+            case "shape":
+                return `${scope} [data-e2p-shape="${Number(target.shape)}"]`;
+            case "table_cell":
+                return `${scope} [data-e2p-table="${Number(target.shape)}"] [data-e2p-cell="${Number(target.row)},${Number(target.col)}"]`;
+            case "table":
+                return `${scope} [data-e2p-table="${Number(target.shape)}"]`;
+            default:
+                return null; // charts have no addressable shape id here
+        }
+    }
     switch (target.kind) {
         case "paragraph":
         case "paragraph_after": {
@@ -527,6 +544,8 @@ export default function StudioPage() {
                         onUndo={undo}
                         onReset={reset}
                         onTextEdit={handleTextEdit}
+                        liveTarget={busy ? liveTarget : null}
+                        flashTargets={flashTargets}
                     />
                 ) : (
                     <DocCanvas

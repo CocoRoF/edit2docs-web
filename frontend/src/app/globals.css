@@ -177,3 +177,17 @@
     .e2d-activityrow { animation: none; transition: none; }
     .e2d-activitylog { -webkit-mask-image: none; mask-image: none; }
 }
+
+/* PPTX live-edit highlight over the preview SVG (data-e2p-* addresses).
+ * `outline` renders on inline SVG elements in modern browsers; keep it cheap. */
+.slide-svg .e2p-live {
+    outline: 2px solid #1B64DA;
+    outline-offset: 2px;
+}
+.slide-svg .e2p-flash {
+    animation: e2p-flash 2.2s ease-out;
+}
+@keyframes e2p-flash {
+    0% { outline: 3px solid #60a5fa; outline-offset: 2px; }
+    100% { outline: 3px solid transparent; outline-offset: 2px; }
+}
