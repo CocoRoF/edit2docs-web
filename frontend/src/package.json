@@ -1,6 +1,7 @@
 {
     "name": "edit2docs-web-frontend",
     "version": "0.1.0",
+    "license": "Apache-2.0",
     "private": true,
     "description": "Korean-first web demo + production UI for the edit2docs engine. Served by hr_blog2.0 at /edit2docs.",
     "scripts": {
